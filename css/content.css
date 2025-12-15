@@ -17,6 +17,12 @@
   background: rgba(99, 102, 241, 0.15) !important;
 }
 
+/* 正在处理中的段落高亮 */
+.vocabmeld-processing {
+  background: rgba(52, 211, 153, 0.12) !important;
+  transition: background 0.3s ease !important;
+}
+
 /* 暗色主题适配 */
 @media (prefers-color-scheme: dark) {
   .vocabmeld-translated .vocabmeld-word {
@@ -88,9 +94,20 @@
 }
 
 .vocabmeld-translated .vocabmeld-original {
+  margin-left: 2px !important;
+}
+
+/* original-translation 模式下保留原文字体/颜色 */
+.vocabmeld-translated[data-style="original-translation"] .vocabmeld-original {
+  color: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+}
+
+/* translation-original 模式下，原文弱化显示 */
+.vocabmeld-translated[data-style="translation-original"] .vocabmeld-original {
   color: #64748b !important;
   font-size: 0.85em !important;
-  margin-left: 2px !important;
 }
 
 .vocabmeld-tooltip {
@@ -152,6 +169,35 @@
   font-size: 13px !important;
   margin-bottom: 8px !important;
   padding: 0 !important;
+}
+
+.vocabmeld-tooltip .vocabmeld-tooltip-dict {
+  margin-top: 4px !important;
+  margin-bottom: 4px !important;
+}
+
+.vocabmeld-tooltip .vocabmeld-tooltip-definition {
+  font-size: 13px !important;
+  color: #e2e8f0 !important;
+  margin: 2px 0 !important;
+}
+
+.vocabmeld-tooltip .vocabmeld-tooltip-pos {
+  text-transform: uppercase !important;
+  font-size: 11px !important;
+  color: #a5b4fc !important;
+  margin-right: 6px !important;
+}
+
+.vocabmeld-tooltip .vocabmeld-tooltip-example {
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+  margin-top: 2px !important;
+}
+
+.vocabmeld-tooltip .vocabmeld-tooltip-dict-loading {
+  font-size: 12px !important;
+  color: #64748b !important;
 }
 
 .vocabmeld-tooltip .vocabmeld-tooltip-tip {

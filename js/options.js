@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       elements.autoProcess.checked = result.autoProcess ?? false;
       elements.showPhonetic.checked = result.showPhonetic ?? true;
       
-      const translationStyle = result.translationStyle || 'translation-original';
+      const translationStyle = result.translationStyle || 'original-translation';
       elements.translationStyleRadios.forEach(radio => {
         radio.checked = radio.value === translationStyle;
       });

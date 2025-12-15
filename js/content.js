@@ -26,6 +26,9 @@
   let wordCache = new Map();
   let tooltip = null;
   let selectionPopup = null;
+  const dictionaryCache = new Map();
+  let currentAudio = null;
+
 
   // ============ 工具函数 ============
   function isDifficultyCompatible(wordDifficulty, userDifficulty) {
@@ -124,9 +127,10 @@
           difficultyLevel: result.difficultyLevel || 'B1',
           intensity: result.intensity || 'medium',
           autoProcess: result.autoProcess ?? false,
-          showPhonetic: result.showPhonetic ?? true,
-          translationStyle: result.translationStyle || 'translation-original',
-          enabled: result.enabled ?? true,
+           showPhonetic: result.showPhonetic ?? true,
+           translationStyle: result.translationStyle || 'original-translation',
+           enabled: result.enabled ?? true,
+
           blacklist: result.blacklist || [],
           whitelist: result.whitelist || [],
           learnedWords: result.learnedWords || [],
@@ -374,7 +378,8 @@
     wrapper.setAttribute('data-difficulty', difficulty || 'B1');
     
     // 根据配置的样式生成不同的HTML
-    const style = config.translationStyle || 'translation-original';
+    const style = config.translationStyle || 'original-translation';
+    wrapper.setAttribute('data-style', style);
     let innerHTML = '';
     
     switch (style) {
@@ -1176,48 +1181,59 @@ ${uncached.join(', ')}
 
       // 并行处理单个 segment（支持异步更新）
       async function processSegment(segment) {
+        const el = segment.element;
         try {
+          el.classList.add('vocabmeld-processing');
+
           const result = await translateText(segment.filteredText);
           
           // 先应用缓存结果（立即显示）
           let immediateCount = 0;
           if (result.immediate?.length) {
             const filtered = result.immediate.filter(r => !whitelistWords.has(r.original.toLowerCase()));
-            immediateCount = applyReplacements(segment.element, filtered);
+            immediateCount = applyReplacements(el, filtered);
             processedFingerprints.add(segment.fingerprint);
           }
           
           // 如果有异步结果，等待并更新（不阻塞）
           if (result.async) {
             result.async.then(async (asyncReplacements) => {
-              if (asyncReplacements?.length) {
-                // 获取已替换的词汇，避免重复替换
-                const alreadyReplaced = new Set();
-                segment.element.querySelectorAll('.vocabmeld-translated').forEach(el => {
-                  const original = el.getAttribute('data-original');
-                  if (original) {
-                    alreadyReplaced.add(original.toLowerCase());
+              try {
+                if (asyncReplacements?.length) {
+                  // 获取已替换的词汇，避免重复替换
+                  const alreadyReplaced = new Set();
+                  el.querySelectorAll('.vocabmeld-translated').forEach(transEl => {
+                    const original = transEl.getAttribute('data-original');
+                    if (original) {
+                      alreadyReplaced.add(original.toLowerCase());
+                    }
+                  });
+                  
+                  // 过滤掉已替换的词汇
+                  const filtered = asyncReplacements.filter(r => 
+                    !whitelistWords.has(r.original.toLowerCase()) &&
+                    !alreadyReplaced.has(r.original.toLowerCase())
+                  );
+                  
+                  if (filtered.length > 0) {
+                    applyReplacements(el, filtered);
                   }
-                });
-                
-                // 过滤掉已替换的词汇
-                const filtered = asyncReplacements.filter(r => 
-                  !whitelistWords.has(r.original.toLowerCase()) &&
-                  !alreadyReplaced.has(r.original.toLowerCase())
-                );
-                
-                if (filtered.length > 0) {
-                  applyReplacements(segment.element, filtered);
                 }
+              } finally {
+                el.classList.remove('vocabmeld-processing');
               }
             }).catch(error => {
               console.error('[VocabMeld] Async translation error:', error);
+              el.classList.remove('vocabmeld-processing');
             });
+          } else {
+            el.classList.remove('vocabmeld-processing');
           }
           
           return { count: immediateCount, error: false };
         } catch (e) {
           console.error('[VocabMeld] Segment error:', e);
+          el.classList.remove('vocabmeld-processing');
           return { count: 0, error: true };
         }
       }
@@ -1252,18 +1268,39 @@ ${uncached.join(', ')}
   function showTooltip(element) {
     if (!tooltip || !element.classList?.contains('vocabmeld-translated')) return;
 
-    const original = element.getAttribute('data-original');
-    const translation = element.getAttribute('data-translation');
+    const original = element.getAttribute('data-original') || '';
+    const translation = element.getAttribute('data-translation') || '';
     const phonetic = element.getAttribute('data-phonetic');
-    const difficulty = element.getAttribute('data-difficulty');
+    const difficulty = element.getAttribute('data-difficulty') || '';
+
+    const originalLang = original ? detectLanguage(original) : '';
+    const translationLang = translation ? detectLanguage(translation) : '';
+
+    let dictionaryWord = '';
+    if (originalLang === 'en') {
+      dictionaryWord = original;
+    } else if (translationLang === 'en') {
+      dictionaryWord = translation;
+    }
+
+    const basePhonetic = phonetic && config.showPhonetic
+      ? `<div class="vocabmeld-tooltip-phonetic">${phonetic}</div>`
+      : '';
+
+    const dictSection = dictionaryWord
+      ? `<div class="vocabmeld-tooltip-dict" data-dict-word="${dictionaryWord}">
+           <div class="vocabmeld-tooltip-dict-loading">正在加载词典...</div>
+         </div>`
+      : '';
 
     tooltip.innerHTML = `
       <div class="vocabmeld-tooltip-header">
-        <span class="vocabmeld-tooltip-word">${translation}</span>
-        <span class="vocabmeld-tooltip-badge">${difficulty}</span>
+        <span class="vocabmeld-tooltip-word">${translation || original}</span>
+        ${difficulty ? `<span class="vocabmeld-tooltip-badge">${difficulty}</span>` : ''}
       </div>
-      ${phonetic && config.showPhonetic ? `<div class="vocabmeld-tooltip-phonetic">${phonetic}</div>` : ''}
+      ${basePhonetic}
       <div class="vocabmeld-tooltip-original">原文: ${original}</div>
+      ${dictSection}
       <div class="vocabmeld-tooltip-tip">左键点击发音 · 右键标记已学会</div>
     `;
 
@@ -1271,6 +1308,42 @@ ${uncached.join(', ')}
     tooltip.style.left = rect.left + window.scrollX + 'px';
     tooltip.style.top = rect.bottom + window.scrollY + 5 + 'px';
     tooltip.style.display = 'block';
+
+    if (dictionaryWord) {
+      const key = dictionaryWord.toLowerCase().trim();
+      tooltip.dataset.dictWord = key;
+
+      getDictionaryEntry(dictionaryWord).then((entry) => {
+        if (!entry) return;
+        if (tooltip.dataset.dictWord !== key) return;
+
+        const dictRoot = tooltip.querySelector('.vocabmeld-tooltip-dict');
+        if (!dictRoot) return;
+
+        const parts = [];
+
+        if (entry.phoneticText && (!phonetic || !config.showPhonetic)) {
+          parts.push(`<div class="vocabmeld-tooltip-phonetic">${entry.phoneticText}</div>`);
+        }
+
+        if (entry.shortDefinition) {
+          const posLabel = entry.partOfSpeech
+            ? `<span class="vocabmeld-tooltip-pos">${entry.partOfSpeech}</span>`
+            : '';
+          parts.push(`<div class="vocabmeld-tooltip-definition">${posLabel}${entry.shortDefinition}</div>`);
+        }
+
+        if (entry.example) {
+          parts.push(`<div class="vocabmeld-tooltip-example">${entry.example}</div>`);
+        }
+
+        if (parts.length === 0) {
+          dictRoot.innerHTML = '';
+        } else {
+          dictRoot.innerHTML = parts.join('');
+        }
+      }).catch(() => {});
+    }
   }
 
   function hideTooltip() {
@@ -1309,6 +1382,130 @@ ${uncached.join(', ')}
     });
   }
 
+  async function getDictionaryEntry(word) {
+    const key = (word || '').toLowerCase().trim();
+    if (!key) return null;
+
+    const cached = dictionaryCache.get(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    try {
+      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(key)}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      const firstEntry = Array.isArray(data) ? data[0] : null;
+      if (!firstEntry) {
+        dictionaryCache.set(key, null);
+        return null;
+      }
+
+      let audioUrl = '';
+      let phoneticText = firstEntry.phonetic || '';
+
+      if (Array.isArray(firstEntry.phonetics) && firstEntry.phonetics.length) {
+        const phoneticWithAudio = firstEntry.phonetics.find(p => p.audio) || firstEntry.phonetics[0];
+        if (phoneticWithAudio) {
+          audioUrl = phoneticWithAudio.audio || '';
+          if (!phoneticText && phoneticWithAudio.text) {
+            phoneticText = phoneticWithAudio.text;
+          }
+        }
+      }
+
+      let shortDefinition = '';
+      let partOfSpeech = '';
+      let example = '';
+
+      if (Array.isArray(firstEntry.meanings) && firstEntry.meanings.length) {
+        const meaning = firstEntry.meanings[0];
+        partOfSpeech = meaning.partOfSpeech || '';
+        const defObj = Array.isArray(meaning.definitions) && meaning.definitions.length
+          ? meaning.definitions[0]
+          : null;
+        if (defObj) {
+          shortDefinition = defObj.definition || '';
+          example = defObj.example || '';
+        }
+      }
+
+      const entry = { audioUrl, phoneticText, shortDefinition, partOfSpeech, example };
+      dictionaryCache.set(key, entry);
+      return entry;
+    } catch (error) {
+      console.warn('[VocabMeld] Dictionary lookup failed:', error);
+      dictionaryCache.set(key, null);
+      return null;
+    }
+  }
+
+  async function playDictionaryAudio(word) {
+    try {
+      const entry = await getDictionaryEntry(word);
+      const audioUrl = entry?.audioUrl;
+      if (!audioUrl) {
+        throw new Error('No audio');
+      }
+
+      if (currentAudio) {
+        try {
+          currentAudio.pause();
+        } catch (e) {}
+      }
+      currentAudio = new Audio(audioUrl);
+      await currentAudio.play();
+    } catch (error) {
+      console.warn('[VocabMeld] Dictionary audio failed:', error);
+      throw error;
+    }
+  }
+
+
+  async function playWordAudio(element) {
+    if (!element) return;
+
+    const original = element.getAttribute('data-original') || '';
+    const translation = element.getAttribute('data-translation') || '';
+
+    const originalLang = original ? detectLanguage(original) : '';
+    const translationLang = translation ? detectLanguage(translation) : '';
+
+    let word = '';
+    let lang = '';
+
+    if (originalLang === 'en') {
+      word = original;
+      lang = 'en';
+    } else if (translationLang === 'en') {
+      word = translation;
+      lang = 'en';
+    } else {
+      word = translation || original;
+      lang = detectLanguage(word);
+    }
+
+    if (!word) return;
+
+    if (lang === 'en') {
+      try {
+        await playDictionaryAudio(word);
+        return;
+      } catch (e) {
+        // fall back to TTS below
+      }
+    }
+
+    const ttsLang = lang === 'en' ? 'en-US' :
+                    lang === 'zh-CN' ? 'zh-CN' :
+                    lang === 'ja' ? 'ja-JP' :
+                    lang === 'ko' ? 'ko-KR' : 'en-US';
+
+    chrome.runtime.sendMessage({ action: 'speak', text: word, lang: ttsLang });
+  }
+
   // ============ 事件处理 ============
   function setupEventListeners() {
     // 悬停显示提示 - 使用 mouseenter/mouseleave 更稳定
@@ -1340,17 +1537,11 @@ ${uncached.join(', ')}
       }
     });
 
-    // 左键点击发音
-    document.addEventListener('click', (e) => {
+    // 左键点击发音（优先使用 Dictionary API）
+    document.addEventListener('click', async (e) => {
       const target = e.target.closest('.vocabmeld-translated');
       if (target) {
-        const word = target.getAttribute('data-translation');
-        const lang = config.targetLanguage === 'en' ? 'en-US' : 
-                     config.targetLanguage === 'zh-CN' ? 'zh-CN' :
-                     config.targetLanguage === 'ja' ? 'ja-JP' :
-                     config.targetLanguage === 'ko' ? 'ko-KR' : 'en-US';
-        
-        chrome.runtime.sendMessage({ action: 'speak', text: word, lang });
+        await playWordAudio(target);
       }
     });
 
