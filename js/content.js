@@ -1454,10 +1454,22 @@ Return only the JSON array and nothing else.`;
     const translationLang = translation ? detectLanguage(translation) : '';
 
     let dictionaryWord = '';
+    let dictionaryLang = '';
+
+    // Prioritize single word lookups
     if (originalLang === 'en' && isSingleEnglishWord(original)) {
       dictionaryWord = original.trim();
+      dictionaryLang = originalLang;
     } else if (translationLang === 'en' && isSingleEnglishWord(translation)) {
       dictionaryWord = translation.trim();
+      dictionaryLang = translationLang;
+    } else if (original && original.trim().split(/\s+/).length === 1) {
+      // Support single words in other languages
+      dictionaryWord = original.trim();
+      dictionaryLang = originalLang;
+    } else if (translation && translation.trim().split(/\s+/).length === 1) {
+      dictionaryWord = translation.trim();
+      dictionaryLang = translationLang;
     }
 
     const hasDictionaryWord = !!dictionaryWord;
@@ -1513,7 +1525,7 @@ Return only the JSON array and nothing else.`;
       const key = dictionaryWord.toLowerCase().trim();
       tooltip.dataset.dictWord = key;
 
-      getDictionaryEntry(dictionaryWord).then((entry) => {
+      getDictionaryEntry(dictionaryWord, dictionaryLang).then((entry) => {
         if (!entry) return;
         if (tooltip.dataset.dictWord !== key) return;
 
@@ -1585,40 +1597,125 @@ Return only the JSON array and nothing else.`;
     }, 2000);
   }
 
-  async function getDictionaryEntry(word) {
+  async function getDictionaryEntry(word, langCode = 'en') {
     const key = (word || '').toLowerCase().trim();
     if (!key) return null;
 
-    const cached = dictionaryCache.get(key);
+    const cacheKey = `${key}_${langCode}`;
+    const cached = dictionaryCache.get(cacheKey);
     if (cached !== undefined) {
       return cached;
     }
 
+    // Initialize return structure
+    const entry = {
+      audioUrl: '',
+      phoneticText: '',
+      shortDefinition: '',
+      partOfSpeech: '',
+      example: ''
+    };
+
     try {
-      const apiUrl = `https://en.wiktionary.org/w/api.php?action=query&format=json&prop=extracts&explaintext=1&exsentences=2&redirects=1&titles=${encodeURIComponent(key)}&origin=*`;
-      const response = await fetch(apiUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      // 1. Build Parse API URL (origin=* solves CORS issue)
+      const url = `https://${langCode}.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(word)}&format=json&prop=text&origin=*`;
+
+      // 2. Fetch data
+      const response = await fetch(url);
       const data = await response.json();
-      const pages = data?.query?.pages || {};
-      const page = Object.values(pages)[0];
-      const extract = page?.extract || '';
 
-      const shortDefinition = extract.split('\n')[0].slice(0, 220).trim();
-      const entry = {
-        audioUrl: '',
-        phoneticText: '',
-        shortDefinition,
-        partOfSpeech: '',
-        example: ''
-      };
+      // 3. Check for errors or missing page
+      if (data.error || !data.parse || !data.parse.text) {
+        console.warn(`[VocabMeld] Word not found: ${word}`);
+        dictionaryCache.set(cacheKey, null);
+        return null;
+      }
 
-      dictionaryCache.set(key, entry);
+      // 4. Parse HTML content
+      const htmlString = data.parse.text['*'];
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlString, 'text/html');
+
+      // --- A. Extract Part of Speech ---
+      const validPOS = ['Noun', 'Verb', 'Adjective', 'Adverb', 'Interjection', 'Pronoun', 'Preposition', 'Conjunction'];
+      let posHeader = null;
+
+      const headers = doc.querySelectorAll('h3, h4');
+      for (const header of headers) {
+        // Clean header text (remove '[edit]' etc.)
+        const text = header.textContent.replace(/\[.*?\]/g, '').trim();
+
+        if (validPOS.some(pos => text.includes(pos))) {
+          entry.partOfSpeech = text;
+          posHeader = header;
+          break;
+        }
+      }
+
+      // --- B. Extract Phonetic (IPA) ---
+      const phoneticEl = doc.querySelector('.IPA');
+      if (phoneticEl) {
+        entry.phoneticText = phoneticEl.textContent.trim();
+      }
+
+      // --- C. Extract Audio ---
+      const audioSource = doc.querySelector('audio source[src*=".mp3"], .audiofile source[src*=".mp3"]');
+      if (audioSource) {
+        let src = audioSource.getAttribute('src');
+        if (src && src.startsWith('//')) {
+          src = 'https:' + src;
+        }
+        entry.audioUrl = src;
+      }
+
+      // --- D. Extract Definition and E. Example ---
+      if (posHeader) {
+        let currentNode = posHeader.parentNode;
+        if (!currentNode.classList.contains('mw-heading')) {
+          currentNode = posHeader;
+        }
+
+        let definitionList = null;
+
+        // Find the next <ol> sibling
+        while (currentNode && currentNode.nextElementSibling) {
+          currentNode = currentNode.nextElementSibling;
+          if (currentNode.tagName === 'OL') {
+            definitionList = currentNode;
+            break;
+          }
+          if (['H2', 'H3'].includes(currentNode.tagName)) {
+            break;
+          }
+        }
+
+        if (definitionList) {
+          const firstLi = definitionList.querySelector('li');
+          if (firstLi) {
+            // 1. Extract example
+            const exampleEl = firstLi.querySelector('.h-usage-example, .e-example, .use-with-mention + dl, .h-usage-example');
+            if (exampleEl) {
+              entry.example = exampleEl.textContent.trim().slice(0, 150);
+            }
+
+            // 2. Extract definition (clone and remove example elements)
+            const cloneLi = firstLi.cloneNode(true);
+            const removeSelectors = ['.h-usage-example', '.e-example', 'ul', 'dl', '.reference'];
+            removeSelectors.forEach(sel => {
+              cloneLi.querySelectorAll(sel).forEach(el => el.remove());
+            });
+
+            entry.shortDefinition = cloneLi.textContent.trim().slice(0, 220);
+          }
+        }
+      }
+
+      // Cache and return
+      dictionaryCache.set(cacheKey, entry);
       return entry;
     } catch (error) {
-      console.warn('[VocabMeld] Dictionary lookup failed:', error);
-      dictionaryCache.set(key, null);
+      console.error('[VocabMeld] Dictionary lookup error:', error);
+      dictionaryCache.set(cacheKey, null);
       return null;
     }
   }
