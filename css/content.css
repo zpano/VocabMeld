@@ -52,28 +52,6 @@
   opacity: 1 !important;
 }
 
-/* 选择弹出框按钮 */
-.vocabmeld-add-memorize {
-  display: block !important;
-  padding: 8px 16px !important;
-  background: none !important;
-  border: none !important;
-  color: #f8fafc !important;
-  font-size: 13px !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  cursor: pointer !important;
-  border-radius: 6px !important;
-  transition: background 0.2s ease !important;
-  white-space: nowrap !important;
-  text-align: left !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.vocabmeld-add-memorize:hover {
-  background: #334155 !important;
-}
-
 /* 确保样式不被覆盖 - 使用 !important 覆盖页面样式 */
 .vocabmeld-translated {
   position: relative !important;
@@ -200,12 +178,62 @@
   color: #64748b !important;
 }
 
-.vocabmeld-tooltip .vocabmeld-tooltip-tip {
-  font-size: 11px !important;
-  color: #64748b !important;
-  padding-top: 8px !important;
+/* Tooltip 按钮区域 */
+.vocabmeld-tooltip .vocabmeld-tooltip-actions {
+  display: flex !important;
+  gap: 8px !important;
+  padding-top: 10px !important;
+  margin-top: 8px !important;
   border-top: 1px solid #334155 !important;
-  margin: 0 !important;
+}
+
+.vocabmeld-tooltip .vocabmeld-action-btn {
+  flex: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  padding: 6px 8px !important;
+  background: #334155 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  color: #e2e8f0 !important;
+  font-size: 12px !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+}
+
+.vocabmeld-tooltip .vocabmeld-action-btn:hover {
+  background: #475569 !important;
+  transform: translateY(-1px) !important;
+}
+
+.vocabmeld-tooltip .vocabmeld-action-btn:active {
+  transform: translateY(0) !important;
+}
+
+.vocabmeld-tooltip .vocabmeld-action-btn svg {
+  flex-shrink: 0 !important;
+}
+
+/* 发音按钮 */
+.vocabmeld-tooltip .vocabmeld-btn-speak:hover {
+  background: #3b82f6 !important;
+  color: white !important;
+}
+
+/* 记忆按钮 */
+.vocabmeld-tooltip .vocabmeld-btn-memorize:hover {
+  background: #f59e0b !important;
+  color: white !important;
+}
+
+/* 已学会按钮 */
+.vocabmeld-tooltip .vocabmeld-btn-learned:hover {
+  background: #10b981 !important;
+  color: white !important;
 }
 
 .vocabmeld-toast {
@@ -221,29 +249,18 @@
   border: 1px solid #334155 !important;
 }
 
-.vocabmeld-selection-popup {
-  position: absolute !important;
-  z-index: 2147483647 !important;
-  background: #1e293b !important;
-  border-radius: 8px !important;
-  padding: 4px !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
-  border: 1px solid #334155 !important;
-}
-
 /* 打印时隐藏 */
 @media print {
   .vocabmeld-tooltip,
-  .vocabmeld-toast,
-  .vocabmeld-selection-popup {
+  .vocabmeld-toast {
     display: none !important;
   }
-  
+
   .vocabmeld-translated .vocabmeld-word {
     color: inherit;
     text-decoration: none;
   }
-  
+
   .vocabmeld-translated .vocabmeld-original {
     display: none;
   }

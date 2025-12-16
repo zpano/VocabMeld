@@ -78,14 +78,18 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
   
   if (info.menuItemId === 'vocabmeld-process-page') {
-    chrome.tabs.sendMessage(tab.id, { action: 'processPage' });
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { action: 'processPage' }).catch(() => {});
+    }
   }
 });
 
 // 快捷键处理
 chrome.commands.onCommand.addListener((command, tab) => {
   if (command === 'toggle-translation') {
-    chrome.tabs.sendMessage(tab.id, { action: 'processPage' });
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { action: 'processPage' }).catch(() => {});
+    }
   }
 });
 

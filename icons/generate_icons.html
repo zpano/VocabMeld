@@ -3,62 +3,31 @@
 <head>
   <title>Generate VocabMeld Icons</title>
   <style>
-    body { font-family: -apple-system, sans-serif; padding: 40px; background: #1e293b; color: white; }
-    h1 { margin-bottom: 10px; }
-    p { color: #94a3b8; margin-bottom: 30px; }
-    .icon-grid { display: flex; gap: 30px; flex-wrap: wrap; margin-bottom: 30px; }
+    body { font-family: sans-serif; padding: 20px; background: #1e293b; color: white; }
+    .icon-grid { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
     .icon-item { text-align: center; }
-    .icon-item p { margin-top: 10px; font-size: 14px; }
     canvas { background: transparent; border: 1px solid #334155; border-radius: 8px; }
-    button { 
-      padding: 12px 24px; 
-      cursor: pointer; 
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 500;
-    }
-    button:hover { opacity: 0.9; }
-    .instructions {
-      margin-top: 40px;
-      padding: 20px;
-      background: #334155;
-      border-radius: 8px;
-    }
-    .instructions h3 { margin-bottom: 10px; }
-    .instructions ol { margin-left: 20px; }
-    .instructions li { margin-bottom: 8px; color: #94a3b8; }
-    code { background: #1e293b; padding: 2px 6px; border-radius: 4px; }
+    button { margin-top: 10px; padding: 10px 20px; cursor: pointer; }
+    .download-links { margin-top: 20px; }
+    .download-links a { color: #818cf8; margin-right: 15px; }
   </style>
 </head>
 <body>
-  <h1>🎨 VocabMeld Icon Generator</h1>
-  <p>生成 Chrome 扩展所需的各尺寸图标</p>
+  <h1>VocabMeld Icon Generator</h1>
+  <p>点击按钮生成并下载图标文件</p>
   
   <div class="icon-grid" id="iconGrid"></div>
   
-  <button onclick="downloadAll()">📥 下载所有图标</button>
-
-  <div class="instructions">
-    <h3>使用说明</h3>
-    <ol>
-      <li>点击上方按钮下载所有尺寸的图标</li>
-      <li>将下载的 PNG 文件放入 <code>icons/</code> 目录</li>
-      <li>确保文件名为: <code>icon16.png</code>, <code>icon32.png</code>, <code>icon48.png</code>, <code>icon128.png</code></li>
-    </ol>
-  </div>
+  <button onclick="downloadAll()">下载所有图标</button>
+  <div class="download-links" id="downloadLinks"></div>
 
   <script>
     const sizes = [16, 32, 48, 128];
     const iconGrid = document.getElementById('iconGrid');
+    const downloadLinks = document.getElementById('downloadLinks');
     
     function drawIcon(ctx, size) {
       const scale = size / 128;
-      
-      // 清除画布
-      ctx.clearRect(0, 0, size, size);
       
       // 渐变背景
       const gradient = ctx.createLinearGradient(0, 0, size, size);
@@ -74,62 +43,53 @@
       
       // 内部光晕
       ctx.beginPath();
-      ctx.arc(size/2, size/2, size/2 - 8*scale, 0, Math.PI * 2);
+      ctx.arc(size/2, size/2, size/2 - 10*scale, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(255,255,255,0.2)';
       ctx.lineWidth = 2 * scale;
       ctx.stroke();
       
-      // 创建文字渐变
-      const textGradient = ctx.createLinearGradient(20*scale, 0, 108*scale, 0);
-      textGradient.addColorStop(0, '#fef3c7');
-      textGradient.addColorStop(1, '#fcd34d');
-      
       // 绘制 V 字母
-      ctx.strokeStyle = textGradient;
-      ctx.lineWidth = Math.max(2, 6 * scale);
+      ctx.strokeStyle = '#fef3c7';
+      ctx.lineWidth = 6 * scale;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       
       ctx.beginPath();
-      ctx.moveTo(28 * scale, 32 * scale);
-      ctx.lineTo(50 * scale, 78 * scale);
-      ctx.lineTo(64 * scale, 56 * scale);
-      ctx.lineTo(78 * scale, 78 * scale);
-      ctx.lineTo(100 * scale, 32 * scale);
+      ctx.moveTo(28 * scale, 30 * scale);
+      ctx.lineTo(48 * scale, 80 * scale);
+      ctx.lineTo(64 * scale, 55 * scale);
+      ctx.lineTo(80 * scale, 80 * scale);
+      ctx.lineTo(100 * scale, 30 * scale);
       ctx.stroke();
       
-      // 绘制 M 字母（仅在大尺寸显示）
-      if (size >= 32) {
-        ctx.lineWidth = Math.max(1.5, 4 * scale);
-        ctx.beginPath();
-        ctx.moveTo(46 * scale, 94 * scale);
-        ctx.lineTo(46 * scale, 78 * scale);
-        ctx.lineTo(60 * scale, 88 * scale);
-        ctx.lineTo(74 * scale, 78 * scale);
-        ctx.lineTo(74 * scale, 94 * scale);
-        ctx.stroke();
-      }
+      // 绘制 M 字母
+      ctx.lineWidth = 4 * scale;
+      ctx.beginPath();
+      ctx.moveTo(44 * scale, 95 * scale);
+      ctx.lineTo(44 * scale, 78 * scale);
+      ctx.lineTo(58 * scale, 88 * scale);
+      ctx.lineTo(72 * scale, 78 * scale);
+      ctx.lineTo(72 * scale, 95 * scale);
+      ctx.stroke();
       
-      // 星点装饰（仅在大尺寸显示）
-      if (size >= 48) {
-        ctx.fillStyle = '#fef3c7';
-        ctx.globalAlpha = 0.8;
-        ctx.beginPath();
-        ctx.arc(98 * scale, 26 * scale, 3 * scale, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.globalAlpha = 0.6;
-        ctx.beginPath();
-        ctx.arc(26 * scale, 48 * scale, 2 * scale, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.globalAlpha = 0.7;
-        ctx.beginPath();
-        ctx.arc(100 * scale, 68 * scale, 2.5 * scale, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.globalAlpha = 1;
-      }
+      // 星点装饰
+      ctx.fillStyle = '#fef3c7';
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.arc(98 * scale, 25 * scale, 3 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.arc(25 * scale, 45 * scale, 2 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.arc(100 * scale, 65 * scale, 2.5 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.globalAlpha = 1;
     }
     
     // 生成所有尺寸的图标
@@ -146,7 +106,7 @@
       drawIcon(ctx, size);
       
       const label = document.createElement('p');
-      label.textContent = size + ' × ' + size;
+      label.textContent = size + 'x' + size;
       
       item.appendChild(canvas);
       item.appendChild(label);
@@ -154,14 +114,12 @@
     });
     
     function downloadAll() {
-      sizes.forEach((size, index) => {
-        setTimeout(() => {
-          const canvas = document.getElementById('icon' + size);
-          const link = document.createElement('a');
-          link.download = 'icon' + size + '.png';
-          link.href = canvas.toDataURL('image/png');
-          link.click();
-        }, index * 200);
+      sizes.forEach(size => {
+        const canvas = document.getElementById('icon' + size);
+        const link = document.createElement('a');
+        link.download = 'icon' + size + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
       });
     }
   </script>

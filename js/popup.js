@@ -67,11 +67,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       // 通知内容脚本
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-          chrome.tabs.sendMessage(tabs[0].id, { 
-            action: enabled ? 'processPage' : 'restorePage' 
-          });
+        const tab = tabs?.[0];
+        const url = tab?.url || '';
+        if (!tab?.id || (!url.startsWith('http') && !url.startsWith('file:'))) {
+          return;
         }
+
+        // `chrome.tabs.sendMessage` returns a Promise in MV3; catch to avoid
+        // "Uncaught (in promise) ... Receiving end does not exist" on pages
+        // where content scripts cannot run (e.g. chrome://, Web Store).
+        chrome.tabs.sendMessage(tab.id, {
+          action: enabled ? 'processPage' : 'restorePage'
+        }).catch(() => {});
       });
     });
   });

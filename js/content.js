@@ -25,7 +25,8 @@
   let processedFingerprints = new Set();
   let wordCache = new Map();
   let tooltip = null;
-  let selectionPopup = null;
+  let currentTooltipElement = null; // 当前 tooltip 对应的翻译元素
+  let tooltipHideTimeout = null; // tooltip 延迟隐藏定时器
   const dictionaryCache = new Map();
   let currentAudio = null;
 
@@ -1268,6 +1269,13 @@ ${uncached.join(', ')}
   function showTooltip(element) {
     if (!tooltip || !element.classList?.contains('vocabmeld-translated')) return;
 
+    // 取消任何待处理的隐藏操作
+    if (tooltipHideTimeout) {
+      clearTimeout(tooltipHideTimeout);
+      tooltipHideTimeout = null;
+    }
+
+    currentTooltipElement = element; // 保存当前元素引用
     const original = element.getAttribute('data-original') || '';
     const translation = element.getAttribute('data-translation') || '';
     const phonetic = element.getAttribute('data-phonetic');
@@ -1301,7 +1309,28 @@ ${uncached.join(', ')}
       ${basePhonetic}
       <div class="vocabmeld-tooltip-original">原文: ${original}</div>
       ${dictSection}
-      <div class="vocabmeld-tooltip-tip">左键点击发音 · 右键标记已学会</div>
+      <div class="vocabmeld-tooltip-actions">
+        <button class="vocabmeld-action-btn vocabmeld-btn-speak" data-action="speak" title="发音">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
+          <span>发音</span>
+        </button>
+        <button class="vocabmeld-action-btn vocabmeld-btn-memorize" data-action="memorize" title="添加到记忆列表">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"></path>
+          </svg>
+          <span>记忆</span>
+        </button>
+        <button class="vocabmeld-action-btn vocabmeld-btn-learned" data-action="learned" title="标记为已学会">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>已学会</span>
+        </button>
+      </div>
     `;
 
     const rect = element.getBoundingClientRect();
@@ -1346,8 +1375,31 @@ ${uncached.join(', ')}
     }
   }
 
-  function hideTooltip() {
-    if (tooltip) tooltip.style.display = 'none';
+  function hideTooltip(immediate = false) {
+    if (tooltipHideTimeout) {
+      clearTimeout(tooltipHideTimeout);
+      tooltipHideTimeout = null;
+    }
+
+    if (immediate) {
+      // 立即隐藏
+      if (tooltip) tooltip.style.display = 'none';
+      currentTooltipElement = null;
+    } else {
+      // 延迟隐藏，给用户时间移动到 tooltip
+      tooltipHideTimeout = setTimeout(() => {
+        if (tooltip) tooltip.style.display = 'none';
+        currentTooltipElement = null;
+        tooltipHideTimeout = null;
+      }, 300);
+    }
+  }
+
+  function cancelTooltipHide() {
+    if (tooltipHideTimeout) {
+      clearTimeout(tooltipHideTimeout);
+      tooltipHideTimeout = null;
+    }
   }
 
   function showToast(message) {
@@ -1360,26 +1412,6 @@ ${uncached.join(', ')}
       toast.classList.remove('vocabmeld-toast-show');
       setTimeout(() => toast.remove(), 300);
     }, 2000);
-  }
-
-  function createSelectionPopup() {
-    if (selectionPopup) return;
-    
-    selectionPopup = document.createElement('div');
-    selectionPopup.className = 'vocabmeld-selection-popup';
-    selectionPopup.style.display = 'none';
-    selectionPopup.innerHTML = '<button class="vocabmeld-add-memorize">添加到需记忆</button>';
-    document.body.appendChild(selectionPopup);
-
-    selectionPopup.querySelector('button').addEventListener('click', async () => {
-      const selection = window.getSelection();
-      const text = selection.toString().trim();
-      if (text && text.length < 50) {
-        await addToMemorizeList(text);
-        showToast(`"${text}" 已添加到需记忆列表`);
-      }
-      selectionPopup.style.display = 'none';
-    });
   }
 
   async function getDictionaryEntry(word) {
@@ -1503,82 +1535,73 @@ ${uncached.join(', ')}
                     lang === 'ja' ? 'ja-JP' :
                     lang === 'ko' ? 'ko-KR' : 'en-US';
 
-    chrome.runtime.sendMessage({ action: 'speak', text: word, lang: ttsLang });
+    chrome.runtime.sendMessage({ action: 'speak', text: word, lang: ttsLang }).catch(() => {});
   }
 
   // ============ 事件处理 ============
   function setupEventListeners() {
-    // 悬停显示提示 - 使用 mouseenter/mouseleave 更稳定
+    // 悬停显示提示
     document.addEventListener('mouseover', (e) => {
       const target = e.target.closest('.vocabmeld-translated');
       if (target) {
         showTooltip(target);
+      }
+      // 鼠标进入 tooltip 时取消隐藏
+      if (e.target.closest('.vocabmeld-tooltip')) {
+        cancelTooltipHide();
       }
     });
 
     document.addEventListener('mouseout', (e) => {
       const target = e.target.closest('.vocabmeld-translated');
       const relatedTarget = e.relatedTarget;
-      
+
       // 只有当鼠标移出到非翻译元素和非tooltip时才隐藏
-      if (target && 
-          !relatedTarget?.closest('.vocabmeld-translated') && 
+      if (target &&
+          !relatedTarget?.closest('.vocabmeld-translated') &&
           !relatedTarget?.closest('.vocabmeld-tooltip')) {
         hideTooltip();
       }
     });
-    
+
     // 鼠标移出 tooltip 时也隐藏
     document.addEventListener('mouseout', (e) => {
-      if (e.target.closest('.vocabmeld-tooltip') && 
+      if (e.target.closest('.vocabmeld-tooltip') &&
           !e.relatedTarget?.closest('.vocabmeld-tooltip') &&
           !e.relatedTarget?.closest('.vocabmeld-translated')) {
         hideTooltip();
       }
     });
 
-    // 左键点击发音（优先使用 Dictionary API）
+    // 处理 tooltip 按钮点击事件
     document.addEventListener('click', async (e) => {
-      const target = e.target.closest('.vocabmeld-translated');
-      if (target) {
-        await playWordAudio(target);
-      }
-    });
-
-    // 右键标记已学会
-    document.addEventListener('contextmenu', async (e) => {
-      const target = e.target.closest('.vocabmeld-translated');
-      if (target) {
+      const actionBtn = e.target.closest('.vocabmeld-action-btn');
+      if (actionBtn && currentTooltipElement) {
         e.preventDefault();
+        e.stopPropagation();
+
+        const action = actionBtn.getAttribute('data-action');
+        const target = currentTooltipElement;
         const original = target.getAttribute('data-original');
         const translation = target.getAttribute('data-translation');
         const difficulty = target.getAttribute('data-difficulty') || 'B1';
-        await addToWhitelist(original, translation, difficulty);
-        restoreOriginal(target);
-        hideTooltip(); // 隐藏tooltip
-        showToast(`"${original}" 已标记为已学会`);
-      }
-    });
 
-    // 选择文本显示添加按钮
-    document.addEventListener('mouseup', (e) => {
-      if (e.target.closest('.vocabmeld-selection-popup')) return;
-      
-      setTimeout(() => {
-        const selection = window.getSelection();
-        const text = selection.toString().trim();
-        
-        if (text && text.length > 1 && text.length < 50 && !e.target.closest('.vocabmeld-translated')) {
-          const range = selection.getRangeAt(0);
-          const rect = range.getBoundingClientRect();
-          
-          selectionPopup.style.left = rect.left + window.scrollX + 'px';
-          selectionPopup.style.top = rect.bottom + window.scrollY + 5 + 'px';
-          selectionPopup.style.display = 'block';
-        } else {
-          selectionPopup.style.display = 'none';
+        switch (action) {
+          case 'speak':
+            await playWordAudio(target);
+            break;
+          case 'memorize':
+            await addToMemorizeList(original);
+            showToast(`"${original}" 已添加到记忆列表`);
+            break;
+          case 'learned':
+            await addToWhitelist(original, translation, difficulty);
+            restoreOriginal(target);
+            hideTooltip(true); // 立即隐藏
+            showToast(`"${original}" 已标记为已学会`);
+            break;
         }
-      }, 10);
+      }
     });
 
     // 滚动处理（懒加载）
@@ -1663,12 +1686,9 @@ ${uncached.join(', ')}
     await loadConfig();
     await loadWordCache();
 
-    
     createTooltip();
-    createSelectionPopup();
-    
     setupEventListeners();
-    
+
     // 自动处理 - 只有在 API 配置好且开启自动处理时才执行
     if (config.autoProcess && config.enabled && config.apiKey) {
       setTimeout(() => processPage(), 1000);
