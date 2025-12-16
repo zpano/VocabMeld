@@ -79,30 +79,30 @@ class ApiService {
     const fromLang = isNativeText ? nativeLanguage : targetLanguage;
     const toLang = isNativeText ? targetLanguage : nativeLanguage;
 
-    return `你是一个语言学习助手。请分析以下文本，选择适合学习的词汇进行翻译。
+    return `You are a language learning assistant. Analyze the text and choose vocabulary suitable for study.
 
-## 规则：
-1. 选择 15-20 个左右有学习价值的词汇
-2. 避免替换：专有名词、人名、地名、品牌名、数字、代码、URL、已经是目标语言的词、小于5个字符的英文单词
-3. 优先选择：常用词汇、有学习价值的词汇、不同难度级别的词汇
-4. 翻译方向：从 ${fromLang} 翻译到 ${toLang}
-5. 翻译倾向：结合上下文，夹杂起来也能容易被理解，尽量只翻译成最合适的词汇，而不是多个含义。
+## Rules:
+1. Select about 15-20 valuable words
+2. Avoid replacing: proper nouns, person/place/brand names, numbers, code, URLs, words already in the target language, English words shorter than 5 characters
+3. Prioritize common/useful words and a mix of difficulty levels
+4. Translation direction: from ${fromLang} to ${toLang}
+5. Translation style: respect context; keep the mix comprehensible; prefer the single most suitable meaning rather than multiple senses
 
-## CEFR等级从简单到复杂依次为：A1-C2
+## CEFR levels from easiest to hardest: A1-C2
 
-## 输出格式：
-返回 JSON 数组，每个元素包含：
-- original: 原词（在文本中出现的形式）
-- translation: 翻译结果
-- phonetic: 学习语言(${targetLanguage})的音标/发音（如英语用 IPA，中文用拼音，日语用假名）
-- difficulty: CEFR 难度等级 (A1/A2/B1/B2/C1/C2)，请谨慎评估
-- position: 在文本中的起始位置（字符索引）
+## Output format:
+Return a JSON array where each item includes:
+- original: the word as it appears in the text
+- translation: translated result
+- phonetic: pronunciation in the learning language (${targetLanguage}) (e.g., IPA for English, pinyin for Chinese, kana for Japanese)
+- difficulty: CEFR level (A1/A2/B1/B2/C1/C2); evaluate carefully
+- position: start index within the text (character offset)
 
-## 文本：
+## Text:
 ${filteredText}
 
-## 输出：
-只返回 JSON 数组，不要其他内容。`;
+## Output:
+Return only the JSON array and nothing else.`;
   }
 
   /**
@@ -231,7 +231,7 @@ ${filteredText}
           messages: [
             { 
               role: 'system', 
-              content: '你是一个专业的语言学习助手，帮助用户通过沉浸式阅读学习新词汇。始终返回有效的 JSON 格式。'
+              content: 'You are a professional language learning assistant who helps users learn new vocabulary through immersive reading. Always return valid JSON.'
             },
             { role: 'user', content: prompt }
           ],

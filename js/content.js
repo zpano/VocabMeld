@@ -76,7 +76,38 @@
     return 'en';
   }
 
+  function isSingleEnglishWord(text) {
+    if (!text) return false;
+    const trimmed = text.trim();
+    return /^[a-zA-Z]+$/.test(trimmed);
+  }
+
+  function isLikelyProperNoun(word) {
+    if (!word) return false;
+    const trimmed = word.trim();
+    if (!/^[A-Za-z][A-Za-z'’-]*$/.test(trimmed)) return false;
+    if (trimmed === trimmed.toUpperCase()) return true; // acronyms / all caps
+    if (trimmed === trimmed.toLowerCase()) return false;
+    return /^[A-Z]/.test(trimmed);
+  }
+
+  function isNonLearningWord(word) {
+    if (!word) return true;
+    const trimmed = word.trim();
+    if (!trimmed) return true;
+    const lower = trimmed.toLowerCase();
+    if (/https?:\/\//i.test(trimmed) || /^www\./i.test(trimmed)) return true;
+    if (/[0-9]/.test(trimmed)) return true;
+    if (/[#@]/.test(trimmed)) return true;
+    if (/[\\/]/.test(trimmed)) return true;
+    if (isLikelyProperNoun(trimmed)) return true;
+    // Disallow obvious domain-like tokens (e.g., example.com)
+    if (/\.[a-z]{2,}$/.test(lower)) return true;
+    return false;
+  }
+
   function isCodeText(text) {
+
     const codePatterns = [
       /^(const|let|var|function|class|import|export|return|if|else|for|while)\s/,
       /[{}();]\s*$/,
@@ -168,18 +199,33 @@
     return new Promise((resolve, reject) => {
       chrome.storage.local.set({ vocabmeld_word_cache: data }, () => {
         if (chrome.runtime.lastError) {
+          if (isContextInvalidated(chrome.runtime.lastError)) {
+            // Extension was reloaded/unloaded; ignore
+            return resolve();
+          }
           console.error('[VocabMeld] Failed to save cache:', chrome.runtime.lastError);
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve();
+          return reject(chrome.runtime.lastError);
         }
+        resolve();
       });
     });
+  }
+
+  function isContextInvalidated(error) {
+    const message = (error && error.message) || String(error || '');
+    return message.includes('Extension context invalidated');
   }
 
   async function updateStats(stats) {
     return new Promise((resolve) => {
       chrome.storage.sync.get(['totalWords', 'todayWords', 'lastResetDate', 'cacheHits', 'cacheMisses'], (current) => {
+        if (chrome.runtime.lastError) {
+          if (!isContextInvalidated(chrome.runtime.lastError)) {
+            console.warn('[VocabMeld] Stats read failed:', chrome.runtime.lastError);
+          }
+          return resolve(null);
+        }
+
         const today = new Date().toISOString().split('T')[0];
         if (current.lastResetDate !== today) {
           current.todayWords = 0;
@@ -192,7 +238,16 @@
           cacheHits: (current.cacheHits || 0) + (stats.cacheHits || 0),
           cacheMisses: (current.cacheMisses || 0) + (stats.cacheMisses || 0)
         };
-        chrome.storage.sync.set(updated, () => resolve(updated));
+
+        chrome.storage.sync.set(updated, () => {
+          if (chrome.runtime.lastError) {
+            if (!isContextInvalidated(chrome.runtime.lastError)) {
+              console.warn('[VocabMeld] Stats write failed:', chrome.runtime.lastError);
+            }
+            return resolve(null);
+          }
+          resolve(updated);
+        });
       });
     });
   }
@@ -692,30 +747,30 @@
     // 异步调用 API，处理未缓存的词汇（不阻塞立即返回）
     const asyncPromise = (async () => {
       try {
-        const prompt = `你是一个语言学习助手。请分析以下文本，选择适合学习的词汇进行翻译。
+        const prompt = `You are a language learning assistant. Analyze the text and select useful words to translate.
 
-## 规则：
-1. 选择约 ${aiTargetCount} 个词汇（实际返回数量可以根据文本内容灵活调整，但不要超过 ${maxReplacements * 2} 个）
-2. 不要替换：专有名词、人名、地名、品牌名、数字、代码、URL、已经是目标语言的词、小于5个字符的英文单词
-3. 优先选择：有学习价值的词汇、不同难度级别的词汇
-4. 翻译方向：从 ${sourceLang} 翻译到 ${targetLang}
-5. 翻译倾向：结合上下文，夹杂起来也能容易被理解，尽量只翻译成最合适的词汇，而不是多个含义。
+## Rules:
+1. Select about ${aiTargetCount} words (adjust based on the text, but do not exceed ${maxReplacements * 2} words)
+2. Do NOT replace: proper nouns, person/place/brand names, numbers, code, URLs, words already in the target language, English words shorter than 5 characters
+3. Prioritize words with learning value and a mix of difficulty levels
+4. Translation direction: from ${sourceLang} to ${targetLang}
+5. Translation style: respect context; keep the mix comprehensible; prefer the single most suitable meaning rather than multiple senses
 
-## CEFR等级从简单到复杂依次为：A1-C2
+## CEFR levels from easiest to hardest: A1-C2
 
-## 输出格式：
-返回 JSON 数组，每个元素包含：
-- original: 原词
-- translation: 翻译结果
-- phonetic: 学习语言(${config.targetLanguage})的音标/发音
-- difficulty: CEFR 难度等级 (A1/A2/B1/B2/C1/C2)，请谨慎评估
-- position: 在文本中的起始位置
+## Output format:
+Return a JSON array where each item includes:
+- original: original word
+- translation: translated result
+- phonetic: pronunciation in the learning language (${config.targetLanguage})
+- difficulty: CEFR level (A1/A2/B1/B2/C1/C2); evaluate carefully
+- position: start index within the text
 
-## 文本：
+## Text:
 ${filteredText}
 
-## 输出：
-只返回 JSON 数组，不要其他内容。`;
+## Output:
+Return only the JSON array and nothing else.`;
 
         const response = await fetch(config.apiEndpoint, {
           method: 'POST',
@@ -726,7 +781,7 @@ ${filteredText}
           body: JSON.stringify({
             model: config.modelName,
             messages: [
-              { role: 'system', content: '你是一个专业的语言学习助手。始终返回有效的 JSON 格式。' },
+              { role: 'system', content: 'You are a professional language learning assistant. Always return valid JSON.' },
               { role: 'user', content: prompt }
             ],
             temperature: 0.3,
@@ -757,18 +812,22 @@ ${filteredText}
         // 先缓存所有词汇（包括所有难度级别），供不同难度设置的用户使用
         // 过滤掉2字以下的中文词汇和小于5个字符的英文单词（避免简单词影响语境）
         for (const item of allResults) {
+          const word = item.original || '';
+          if (isNonLearningWord(word)) {
+            continue;
+          }
           // 对于中文，不存储1个字的内容（即只存储2个字及以上的词汇）
-          const isChinese = /[\u4e00-\u9fff]/.test(item.original);
-          if (isChinese && item.original.length < 2) {
+          const isChinese = /[\u4e00-\u9fff]/.test(word);
+          if (isChinese && word.length < 2) {
             continue; // 跳过1个字的中文词汇（只存储2个字及以上的）
           }
           // 对于英文，不存储小于5个字符的单词
-          const isEnglish = /^[a-zA-Z]+$/.test(item.original);
-          if (isEnglish && item.original.length < 5) {
+          const isEnglish = /^[a-zA-Z]+$/.test(word);
+          if (isEnglish && word.length < 5) {
             continue; // 跳过小于5个字符的英文单词
           }
           
-          const key = `${item.original.toLowerCase()}:${sourceLang}:${targetLang}`;
+          const key = `${word.toLowerCase()}:${sourceLang}:${targetLang}`;
           // 如果已存在，先删除（LRU）
           if (wordCache.has(key)) {
             wordCache.delete(key);
@@ -792,13 +851,17 @@ ${filteredText}
 
         // 本地过滤：只保留符合用户难度设置的词汇，并过滤掉小于5个字符的英文单词
         const filteredResults = allResults.filter(item => {
+          const word = item.original || '';
+          if (isNonLearningWord(word)) {
+            return false;
+          }
           // 过滤难度级别
           if (!isDifficultyCompatible(item.difficulty || 'B1', config.difficultyLevel)) {
             return false;
           }
           // 过滤小于5个字符的英文单词
-          const isEnglish = /^[a-zA-Z]+$/.test(item.original);
-          if (isEnglish && item.original.length < 5) {
+          const isEnglish = /^[a-zA-Z]+$/.test(word);
+          if (isEnglish && word.length < 5) {
             return false;
           }
           return true;
@@ -822,7 +885,8 @@ ${filteredText}
           .filter(c => 
             !immediateWords.has(c.word.toLowerCase()) && 
             !correctedResults.some(r => r.original.toLowerCase() === c.word.toLowerCase()) &&
-            isDifficultyCompatible(c.difficulty || 'B1', config.difficultyLevel)
+            isDifficultyCompatible(c.difficulty || 'B1', config.difficultyLevel) &&
+            !isNonLearningWord(c.word)
           )
           .map(c => {
             const idx = text.toLowerCase().indexOf(c.word.toLowerCase());
@@ -835,7 +899,27 @@ ${filteredText}
         return mergedResults.slice(0, maxAsyncReplacements);
 
       } catch (error) {
-        console.error('[VocabMeld] Async API Error:', error);
+        if (isContextInvalidated(error)) {
+          console.debug('[VocabMeld] Async API skipped: extension context invalidated.');
+        } else if (error instanceof TypeError && error.message === 'Failed to fetch') {
+          logApiError('asyncTranslation', error, {
+            sourceLang,
+            targetLang,
+            aiTargetCount,
+            cacheSatisfied,
+            maxAsyncReplacements,
+            filteredTextLength: filteredText?.length || 0
+          });
+        } else {
+          logApiError('asyncTranslation', error, {
+            sourceLang,
+            targetLang,
+            aiTargetCount,
+            cacheSatisfied,
+            maxAsyncReplacements,
+            filteredTextLength: filteredText?.length || 0
+          });
+        }
         // API失败时返回空数组，不影响已显示的缓存结果
         return [];
       }
@@ -880,26 +964,26 @@ ${filteredText}
     // 如果有未缓存的单词，调用API
     if (uncached.length > 0) {
       try {
-        const prompt = `你是一个语言学习助手。请翻译以下特定词汇。
+        const prompt = `You are a language learning assistant. Translate the specific words below.
 
-## 规则：
-1. 必须翻译所有提供的词汇，不要跳过任何词
-2. 如果单词是${sourceLang}，则翻译到${targetLang}，反之亦然
+## Rules:
+1. Translate every provided word; do not skip any
+2. If a word is in ${sourceLang}, translate it to ${targetLang}; otherwise translate it the other way
 
-## CEFR等级从简单到复杂依次为：A1-C2
+## CEFR levels from easiest to hardest: A1-C2
 
-## 输出格式：
-返回 JSON 数组，每个元素包含：
-- original: 原词
-- translation: 翻译结果
-- phonetic: 学习语言(${config.targetLanguage})的音标/发音
-- difficulty: CEFR 难度等级 (A1/A2/B1/B2/C1/C2)
+## Output format:
+Return a JSON array where each item includes:
+- original: original word
+- translation: translated result
+- phonetic: pronunciation in the learning language (${config.targetLanguage})
+- difficulty: CEFR level (A1/A2/B1/B2/C1/C2)
 
-## 要翻译的词汇：
+## Words to translate:
 ${uncached.join(', ')}
 
-## 输出：
-只返回 JSON 数组，不要其他内容。`;
+## Output:
+Return only the JSON array and nothing else.`;
 
         const response = await fetch(config.apiEndpoint, {
           method: 'POST',
@@ -910,7 +994,7 @@ ${uncached.join(', ')}
           body: JSON.stringify({
             model: config.modelName,
             messages: [
-              { role: 'system', content: '你是一个专业的语言学习助手。始终返回有效的 JSON 格式。' },
+              { role: 'system', content: 'You are a professional language learning assistant. Always return valid JSON.' },
               { role: 'user', content: prompt }
             ],
             temperature: 0.3,
@@ -941,18 +1025,22 @@ ${uncached.join(', ')}
         // 缓存结果（复用统一流程，实现LRU淘汰）
         // 过滤掉2字以下的中文词汇和小于5个字符的英文单词（避免简单词影响语境）
         for (const item of apiResults) {
+          const word = item.original || '';
+          if (isNonLearningWord(word)) {
+            continue;
+          }
           // 对于中文，不存储1个字的内容（即只存储2个字及以上的词汇）
-          const isChinese = /[\u4e00-\u9fff]/.test(item.original);
-          if (isChinese && item.original.length < 2) {
+          const isChinese = /[\u4e00-\u9fff]/.test(word);
+          if (isChinese && word.length < 2) {
             continue; // 跳过1个字的中文词汇（只存储2个字及以上的）
           }
           // 对于英文，不存储小于5个字符的单词
-          const isEnglish = /^[a-zA-Z]+$/.test(item.original);
-          if (isEnglish && item.original.length < 5) {
+          const isEnglish = /^[a-zA-Z]+$/.test(word);
+          if (isEnglish && word.length < 5) {
             continue; // 跳过小于5个字符的英文单词
           }
           
-          const key = `${item.original.toLowerCase()}:${sourceLang}:${targetLang}`;
+          const key = `${word.toLowerCase()}:${sourceLang}:${targetLang}`;
           // 如果已存在，先删除（LRU）
           if (wordCache.has(key)) {
             wordCache.delete(key);
@@ -980,12 +1068,24 @@ ${uncached.join(', ')}
         updateStats({ newWords: apiResults.length, cacheHits: cached.length, cacheMisses: 1 });
 
       } catch (error) {
-        console.error('[VocabMeld] API Error for specific words:', error);
+        if (isContextInvalidated(error)) {
+          console.debug('[VocabMeld] Specific-word API skipped: extension context invalidated.');
+        } else {
+          logApiError('specificWords', error, {
+            sourceLang,
+            targetLang,
+            uncachedCount: uncached.length,
+            hasCache: cached.length > 0
+          });
+        }
         // 如果API失败，至少返回缓存的结果
       }
     }
 
-    return allResults.filter(item => targetWords.some(w => w.toLowerCase() === item.original.toLowerCase()));
+    return allResults.filter(item => 
+      targetWords.some(w => w.toLowerCase() === item.original.toLowerCase()) &&
+      !isNonLearningWord(item.original)
+    );
   }
 
   async function processSpecificWords(targetWords) {
@@ -1292,19 +1392,21 @@ ${uncached.join(', ')}
     const translationLang = translation ? detectLanguage(translation) : '';
 
     let dictionaryWord = '';
-    if (originalLang === 'en') {
-      dictionaryWord = original;
-    } else if (translationLang === 'en') {
-      dictionaryWord = translation;
+    if (originalLang === 'en' && isSingleEnglishWord(original)) {
+      dictionaryWord = original.trim();
+    } else if (translationLang === 'en' && isSingleEnglishWord(translation)) {
+      dictionaryWord = translation.trim();
     }
+
+    const hasDictionaryWord = !!dictionaryWord;
 
     const basePhonetic = phonetic && config.showPhonetic
       ? `<div class="vocabmeld-tooltip-phonetic">${phonetic}</div>`
       : '';
 
-    const dictSection = dictionaryWord
+    const dictSection = hasDictionaryWord
       ? `<div class="vocabmeld-tooltip-dict" data-dict-word="${dictionaryWord}">
-           <div class="vocabmeld-tooltip-dict-loading">正在加载词典...</div>
+           <div class="vocabmeld-tooltip-dict-loading">Loading dictionary...</div>
          </div>`
       : '';
 
@@ -1314,22 +1416,22 @@ ${uncached.join(', ')}
         ${difficulty ? `<span class="vocabmeld-tooltip-badge">${difficulty}</span>` : ''}
       </div>
       ${basePhonetic}
-      <div class="vocabmeld-tooltip-original">原文: ${original}</div>
+      <div class="vocabmeld-tooltip-original">Original: ${original}</div>
       ${dictSection}
       <div class="vocabmeld-tooltip-actions">
-        <button class="vocabmeld-action-btn vocabmeld-btn-speak" data-action="speak" title="发音">
+        <button class="vocabmeld-action-btn vocabmeld-btn-speak" data-action="speak" title="Pronounce">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
             <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
             <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
           </svg>
-          <span>发音</span>
+          <span>Pronounce</span>
         </button>
-        <button class="vocabmeld-action-btn vocabmeld-btn-memorize" data-action="memorize" title="添加到记忆列表">
+        <button class="vocabmeld-action-btn vocabmeld-btn-memorize" data-action="memorize" title="Add to memorize list">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 5v14M5 12h14"></path>
           </svg>
-          <span>记忆</span>
+          <span>Memorize</span>
         </button>
         <button class="vocabmeld-action-btn vocabmeld-btn-learned" data-action="learned" title="标记为已学会">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1345,7 +1447,7 @@ ${uncached.join(', ')}
     tooltip.style.top = rect.bottom + window.scrollY + 5 + 'px';
     tooltip.style.display = 'block';
 
-    if (dictionaryWord) {
+    if (hasDictionaryWord) {
       const key = dictionaryWord.toLowerCase().trim();
       tooltip.dataset.dictWord = key;
 
@@ -1398,7 +1500,7 @@ ${uncached.join(', ')}
         if (tooltip) tooltip.style.display = 'none';
         currentTooltipElement = null;
         tooltipHideTimeout = null;
-      }, 300);
+      }, 800);
     }
   }
 
@@ -1431,47 +1533,25 @@ ${uncached.join(', ')}
     }
 
     try {
-      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(key)}`);
+      const apiUrl = `https://en.wiktionary.org/w/api.php?action=query&format=json&prop=extracts&explaintext=1&exsentences=2&redirects=1&titles=${encodeURIComponent(key)}&origin=*`;
+      const response = await fetch(apiUrl);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
       const data = await response.json();
-      const firstEntry = Array.isArray(data) ? data[0] : null;
-      if (!firstEntry) {
-        dictionaryCache.set(key, null);
-        return null;
-      }
+      const pages = data?.query?.pages || {};
+      const page = Object.values(pages)[0];
+      const extract = page?.extract || '';
 
-      let audioUrl = '';
-      let phoneticText = firstEntry.phonetic || '';
+      const shortDefinition = extract.split('\n')[0].slice(0, 220).trim();
+      const entry = {
+        audioUrl: '',
+        phoneticText: '',
+        shortDefinition,
+        partOfSpeech: '',
+        example: ''
+      };
 
-      if (Array.isArray(firstEntry.phonetics) && firstEntry.phonetics.length) {
-        const phoneticWithAudio = firstEntry.phonetics.find(p => p.audio) || firstEntry.phonetics[0];
-        if (phoneticWithAudio) {
-          audioUrl = phoneticWithAudio.audio || '';
-          if (!phoneticText && phoneticWithAudio.text) {
-            phoneticText = phoneticWithAudio.text;
-          }
-        }
-      }
-
-      let shortDefinition = '';
-      let partOfSpeech = '';
-      let example = '';
-
-      if (Array.isArray(firstEntry.meanings) && firstEntry.meanings.length) {
-        const meaning = firstEntry.meanings[0];
-        partOfSpeech = meaning.partOfSpeech || '';
-        const defObj = Array.isArray(meaning.definitions) && meaning.definitions.length
-          ? meaning.definitions[0]
-          : null;
-        if (defObj) {
-          shortDefinition = defObj.definition || '';
-          example = defObj.example || '';
-        }
-      }
-
-      const entry = { audioUrl, phoneticText, shortDefinition, partOfSpeech, example };
       dictionaryCache.set(key, entry);
       return entry;
     } catch (error) {
