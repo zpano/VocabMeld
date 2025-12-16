@@ -458,6 +458,13 @@
 
     for (const replacement of sortedReplacements) {
       const { original, translation, phonetic, difficulty } = replacement;
+
+      // 如果译文和原文相同（针对英语系语言，忽略大小写），跳过替换
+      const isEnglishLike = /^[a-zA-Z]+$/.test(original);
+      if (isEnglishLike && original.toLowerCase() === translation.toLowerCase()) {
+        continue;
+      }
+
       const lowerOriginal = original.toLowerCase();
       
       // 每次替换后重新获取文本节点，因为DOM结构已改变
