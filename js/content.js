@@ -29,6 +29,7 @@
   let tooltipHideTimeout = null; // tooltip 延迟隐藏定时器
   const dictionaryCache = new Map();
   let currentAudio = null;
+  let languageDetector = null; // Native LanguageDetector instance
 
 
   // ============ 工具函数 ============
@@ -58,7 +59,69 @@
     };
   }
 
-  function detectLanguage(text) {
+  /**
+   * Initialize native LanguageDetector if available
+   */
+  async function initLanguageDetector() {
+    try {
+      // Check if LanguageDetector API is available
+      if (typeof LanguageDetector !== 'undefined' && LanguageDetector.create) {
+        languageDetector = await LanguageDetector.create({
+          expectedInputLanguages: ['en', 'zh', 'ja', 'ko', 'fr', 'de', 'es']
+        });
+        console.log('[VocabMeld] Native LanguageDetector initialized');
+      }
+    } catch (error) {
+      console.warn('[VocabMeld] LanguageDetector not available, using fallback:', error);
+      languageDetector = null;
+    }
+  }
+
+  /**
+   * Detect language using native API or fallback to regex-based detection
+   * @param {string} text - Text to detect language from
+   * @returns {Promise<string>|string} - Language code (e.g., 'en', 'zh-CN', 'ja', 'ko')
+   */
+  async function detectLanguage(text) {
+    // Try native LanguageDetector first
+    if (languageDetector) {
+      try {
+        const results = await languageDetector.detect(text);
+
+        // Get the highest confidence result (excluding 'und' - undetermined)
+        const validResults = results.filter(r => r.detectedLanguage !== 'und');
+
+        if (validResults.length > 0) {
+          const topResult = validResults[0];
+          let langCode = topResult.detectedLanguage;
+
+          // Normalize language codes to match our expected formats
+          if (langCode.startsWith('zh')) {
+            langCode = 'zh-CN'; // Normalize Chinese variants
+          } else if (langCode.startsWith('ja')) {
+            langCode = 'ja';
+          } else if (langCode.startsWith('ko')) {
+            langCode = 'ko';
+          } else if (langCode.startsWith('en')) {
+            langCode = 'en';
+          }
+
+          return langCode;
+        }
+      } catch (error) {
+        console.warn('[VocabMeld] LanguageDetector error, using fallback:', error);
+        // Fall through to fallback
+      }
+    }
+
+    // Fallback: regex-based detection
+    return detectLanguageFallback(text);
+  }
+
+  /**
+   * Fallback language detection using character frequency analysis
+   */
+  function detectLanguageFallback(text) {
     const chineseRegex = /[\u4e00-\u9fff]/g;
     const japaneseRegex = /[\u3040-\u309f\u30a0-\u30ff]/g;
     const koreanRegex = /[\uac00-\ud7af]/g;
@@ -1931,6 +1994,7 @@ Return only the JSON array and nothing else.`;
   async function init() {
     await loadConfig();
     await loadWordCache();
+    await initLanguageDetector(); // Initialize native language detector if available
 
     createTooltip();
     setupEventListeners();
@@ -1939,7 +2003,7 @@ Return only the JSON array and nothing else.`;
     if (config.autoProcess && config.enabled && config.apiKey) {
       setTimeout(() => processPage(), 1000);
     }
-    
+
     // Initialized successfully
     if (false) console.log('[VocabMeld] Initialized successfully, config:', {
       autoProcess: config.autoProcess,
