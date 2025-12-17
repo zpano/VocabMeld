@@ -42,8 +42,8 @@ class ContentSegmenter {
     }
 
     // 跳过特定类名
-    const classList = element.className?.toString() || '';
-    if (SKIP_CLASSES.some(cls => classList.includes(cls))) {
+    const classList = element.classList;
+    if (classList && SKIP_CLASSES.some(cls => classList.contains(cls))) {
       return true;
     }
 
@@ -218,6 +218,32 @@ class ContentSegmenter {
   findTextContainers(root) {
     const containers = [];
     const blockTags = ['P', 'DIV', 'ARTICLE', 'SECTION', 'LI', 'TD', 'TH', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'BLOCKQUOTE'];
+    const inlineTextTags = new Set([
+      'A',
+      'ABBR',
+      'B',
+      'BDI',
+      'BDO',
+      'CITE',
+      'DEL',
+      'DFN',
+      'EM',
+      'I',
+      'INS',
+      'KBD',
+      'MARK',
+      'Q',
+      'S',
+      'SAMP',
+      'SMALL',
+      'SPAN',
+      'STRONG',
+      'SUB',
+      'SUP',
+      'TIME',
+      'U',
+      'VAR'
+    ]);
     
     const walker = document.createTreeWalker(
       root,
@@ -239,10 +265,30 @@ class ContentSegmenter {
 
     let node;
     while (node = walker.nextNode()) {
-      // 检查是否有直接文本内容
-      const hasDirectText = Array.from(node.childNodes).some(
-        child => child.nodeType === Node.TEXT_NODE && child.textContent.trim().length > 10
-      );
+      // 检查是否有“直接可见”的文本内容：
+      // - 直接文本节点
+      // - 或者直接子节点是内联元素（如 <a><strong>），其文本在子树里
+      let directTextLength = 0;
+      for (const child of Array.from(node.childNodes)) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          directTextLength += child.textContent.trim().length;
+          if (directTextLength > 10) break;
+          continue;
+        }
+
+        if (child.nodeType === Node.ELEMENT_NODE) {
+          const childEl = child;
+          if (!inlineTextTags.has(childEl.tagName)) continue;
+          if (this.shouldSkipNode(childEl)) continue;
+
+          const t = childEl.textContent.trim();
+          if (t.length === 0 || isCodeText(t)) continue;
+
+          directTextLength += t.length;
+          if (directTextLength > 10) break;
+        }
+      }
+      const hasDirectText = directTextLength > 10;
       
       if (hasDirectText) {
         containers.push(node);
@@ -298,4 +344,3 @@ class ContentSegmenter {
 // 导出单例
 export const contentSegmenter = new ContentSegmenter();
 export default contentSegmenter;
-

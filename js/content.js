@@ -269,8 +269,8 @@ async function processSpecificWords(targetWords) {
 
       if (SKIP_TAGS.includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
 
-      const classList = parent.className?.toString() || '';
-      if (SKIP_CLASSES.some(cls => classList.includes(cls) && cls !== 'vocabmeld-translated')) {
+      const classList = parent.classList;
+      if (classList && SKIP_CLASSES.some(cls => cls !== 'vocabmeld-translated' && classList.contains(cls))) {
         return NodeFilter.FILTER_REJECT;
       }
 
