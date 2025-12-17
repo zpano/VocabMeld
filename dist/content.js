@@ -232,6 +232,81 @@
 
   // js/ui/wiktionary.js
   var dictionaryCache = /* @__PURE__ */ new Map();
+  var PERSISTENT_CACHE_STORAGE_KEY = "vocabmeld_wiktionary_cache";
+  var PERSISTENT_CACHE_MAX_SIZE = 800;
+  var persistentCache = null;
+  var persistentCacheInitPromise = null;
+  var persistTimer = null;
+  function canUseChromeStorage() {
+    try {
+      return !!(globalThis.chrome?.storage?.local?.get && globalThis.chrome?.storage?.local?.set);
+    } catch {
+      return false;
+    }
+  }
+  async function ensurePersistentCacheLoaded() {
+    if (!canUseChromeStorage()) {
+      if (!persistentCache) persistentCache = /* @__PURE__ */ new Map();
+      return;
+    }
+    if (persistentCache) return;
+    if (persistentCacheInitPromise) return persistentCacheInitPromise;
+    persistentCacheInitPromise = new Promise((resolve) => {
+      chrome.storage.local.get(PERSISTENT_CACHE_STORAGE_KEY, (result) => {
+        const raw = result?.[PERSISTENT_CACHE_STORAGE_KEY];
+        const map = /* @__PURE__ */ new Map();
+        if (Array.isArray(raw)) {
+          for (const item of raw) {
+            const key = item?.key;
+            if (typeof key !== "string" || !key) continue;
+            map.set(key, { value: item?.value ?? null, cachedAt: Number(item?.cachedAt) || 0 });
+          }
+        }
+        while (map.size > PERSISTENT_CACHE_MAX_SIZE) {
+          const firstKey = map.keys().next().value;
+          map.delete(firstKey);
+        }
+        persistentCache = map;
+        resolve();
+      });
+    });
+    return persistentCacheInitPromise;
+  }
+  function schedulePersistPersistentCache() {
+    if (!canUseChromeStorage() || !persistentCache) return;
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      persistTimer = null;
+      try {
+        const data = [];
+        for (const [key, meta] of persistentCache) {
+          data.push({ key, value: meta?.value ?? null, cachedAt: Number(meta?.cachedAt) || 0 });
+        }
+        chrome.storage.local.set({ [PERSISTENT_CACHE_STORAGE_KEY]: data }, () => {
+        });
+      } catch {
+      }
+    }, 400);
+  }
+  async function getPersistentCacheValue(cacheKey) {
+    await ensurePersistentCacheLoaded();
+    if (!persistentCache?.has(cacheKey)) return void 0;
+    const meta = persistentCache.get(cacheKey);
+    persistentCache.delete(cacheKey);
+    persistentCache.set(cacheKey, meta);
+    return meta?.value ?? null;
+  }
+  async function setPersistentCacheValue(cacheKey, value) {
+    await ensurePersistentCacheLoaded();
+    if (!persistentCache) persistentCache = /* @__PURE__ */ new Map();
+    if (persistentCache.has(cacheKey)) persistentCache.delete(cacheKey);
+    while (persistentCache.size >= PERSISTENT_CACHE_MAX_SIZE) {
+      const firstKey = persistentCache.keys().next().value;
+      persistentCache.delete(firstKey);
+    }
+    persistentCache.set(cacheKey, { value: value ?? null, cachedAt: Date.now() });
+    schedulePersistPersistentCache();
+  }
   function normalizeKey(word) {
     return (word || "").toLowerCase().trim();
   }
@@ -341,6 +416,11 @@
     const cacheKey = `${key}_${langCode}`;
     const cached = dictionaryCache.get(cacheKey);
     if (cached !== void 0) return cached;
+    const persisted = await getPersistentCacheValue(cacheKey);
+    if (persisted !== void 0) {
+      dictionaryCache.set(cacheKey, persisted);
+      return persisted;
+    }
     if (visited.has(cacheKey)) return null;
     visited.add(cacheKey);
     const entry = {
@@ -358,6 +438,7 @@
       if (data.error || !data.parse || !data.parse.text) {
         console.warn(`[VocabMeld] Word not found: ${word}`);
         dictionaryCache.set(cacheKey, null);
+        await setPersistentCacheValue(cacheKey, null);
         return null;
       }
       const htmlString = data.parse.text["*"];
@@ -425,10 +506,12 @@
         }
       }
       dictionaryCache.set(cacheKey, entry);
+      await setPersistentCacheValue(cacheKey, entry);
       return entry;
     } catch (error) {
       console.error("[VocabMeld] Dictionary lookup error:", error);
       dictionaryCache.set(cacheKey, null);
+      await setPersistentCacheValue(cacheKey, null);
       return null;
     }
   }

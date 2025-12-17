@@ -6,6 +6,99 @@
 // 词典缓存
 const dictionaryCache = new Map();
 
+// 持久化缓存（跨页面刷新生效）
+const PERSISTENT_CACHE_STORAGE_KEY = 'vocabmeld_wiktionary_cache';
+const PERSISTENT_CACHE_MAX_SIZE = 800;
+let persistentCache = null; // Map<cacheKey, { value: object|null, cachedAt: number }>
+let persistentCacheInitPromise = null;
+let persistTimer = null;
+
+function canUseChromeStorage() {
+  try {
+    return !!(globalThis.chrome?.storage?.local?.get && globalThis.chrome?.storage?.local?.set);
+  } catch {
+    return false;
+  }
+}
+
+async function ensurePersistentCacheLoaded() {
+  if (!canUseChromeStorage()) {
+    if (!persistentCache) persistentCache = new Map();
+    return;
+  }
+
+  if (persistentCache) return;
+  if (persistentCacheInitPromise) return persistentCacheInitPromise;
+
+  persistentCacheInitPromise = new Promise((resolve) => {
+    chrome.storage.local.get(PERSISTENT_CACHE_STORAGE_KEY, (result) => {
+      const raw = result?.[PERSISTENT_CACHE_STORAGE_KEY];
+      const map = new Map();
+
+      if (Array.isArray(raw)) {
+        for (const item of raw) {
+          const key = item?.key;
+          if (typeof key !== 'string' || !key) continue;
+          map.set(key, { value: item?.value ?? null, cachedAt: Number(item?.cachedAt) || 0 });
+        }
+      }
+
+      // 防御性裁剪
+      while (map.size > PERSISTENT_CACHE_MAX_SIZE) {
+        const firstKey = map.keys().next().value;
+        map.delete(firstKey);
+      }
+
+      persistentCache = map;
+      resolve();
+    });
+  });
+
+  return persistentCacheInitPromise;
+}
+
+function schedulePersistPersistentCache() {
+  if (!canUseChromeStorage() || !persistentCache) return;
+
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    try {
+      const data = [];
+      for (const [key, meta] of persistentCache) {
+        data.push({ key, value: meta?.value ?? null, cachedAt: Number(meta?.cachedAt) || 0 });
+      }
+      chrome.storage.local.set({ [PERSISTENT_CACHE_STORAGE_KEY]: data }, () => {});
+    } catch {
+      // ignore
+    }
+  }, 400);
+}
+
+async function getPersistentCacheValue(cacheKey) {
+  await ensurePersistentCacheLoaded();
+  if (!persistentCache?.has(cacheKey)) return undefined;
+
+  const meta = persistentCache.get(cacheKey);
+  // 轻量 LRU：触碰后移动到末尾（不强制持久化）
+  persistentCache.delete(cacheKey);
+  persistentCache.set(cacheKey, meta);
+  return meta?.value ?? null;
+}
+
+async function setPersistentCacheValue(cacheKey, value) {
+  await ensurePersistentCacheLoaded();
+  if (!persistentCache) persistentCache = new Map();
+
+  if (persistentCache.has(cacheKey)) persistentCache.delete(cacheKey);
+  while (persistentCache.size >= PERSISTENT_CACHE_MAX_SIZE) {
+    const firstKey = persistentCache.keys().next().value;
+    persistentCache.delete(firstKey);
+  }
+  persistentCache.set(cacheKey, { value: value ?? null, cachedAt: Date.now() });
+  schedulePersistPersistentCache();
+}
+
 function normalizeKey(word) {
   return (word || '').toLowerCase().trim();
 }
@@ -161,6 +254,13 @@ async function getDictionaryEntryInternal(word, langCode, depth, visited) {
   const cached = dictionaryCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
+  // 读取跨刷新持久化缓存
+  const persisted = await getPersistentCacheValue(cacheKey);
+  if (persisted !== undefined) {
+    dictionaryCache.set(cacheKey, persisted);
+    return persisted;
+  }
+
   if (visited.has(cacheKey)) return null;
   visited.add(cacheKey);
 
@@ -185,6 +285,7 @@ async function getDictionaryEntryInternal(word, langCode, depth, visited) {
     if (data.error || !data.parse || !data.parse.text) {
       console.warn(`[VocabMeld] Word not found: ${word}`);
       dictionaryCache.set(cacheKey, null);
+      await setPersistentCacheValue(cacheKey, null);
       return null;
     }
 
@@ -270,10 +371,12 @@ async function getDictionaryEntryInternal(word, langCode, depth, visited) {
     }
 
     dictionaryCache.set(cacheKey, entry);
+    await setPersistentCacheValue(cacheKey, entry);
     return entry;
   } catch (error) {
     console.error('[VocabMeld] Dictionary lookup error:', error);
     dictionaryCache.set(cacheKey, null);
+    await setPersistentCacheValue(cacheKey, null);
     return null;
   }
 }
