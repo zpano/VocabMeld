@@ -458,6 +458,61 @@
     }
   }
 
+  // js/ui/pronunciation.js
+  function normalizeYoudaoType(type) {
+    return Number(type) === 1 ? 1 : 2;
+  }
+  function buildYoudaoDictVoiceUrl(word, type = 2) {
+    const audio = String(word || "").trim();
+    if (!audio) return "";
+    const t = normalizeYoudaoType(type);
+    return `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(audio)}&type=${t}`;
+  }
+  function toGoogleTtsLangCode(lang) {
+    const code = String(lang || "").trim();
+    if (!code) return "en";
+    const map = {
+      en: "en",
+      ja: "ja",
+      ko: "ko",
+      fr: "fr",
+      de: "de",
+      es: "es",
+      ru: "ru",
+      "zh-CN": "zh",
+      "zh-TW": "zh"
+    };
+    if (map[code]) return map[code];
+    const primary = code.split("-")[0];
+    return map[primary] || primary || "en";
+  }
+  function buildGoogleTranslateTtsUrl(text, lang) {
+    const q = String(text || "").trim();
+    if (!q) return "";
+    const tl = toGoogleTtsLangCode(lang);
+    return `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(q)}&tl=${encodeURIComponent(tl)}&client=tw-ob`;
+  }
+  async function playAudioUrls(urls) {
+    const list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+    if (!list.length) throw new Error("No audio URLs");
+    const result = await chrome.runtime.sendMessage({ action: "playAudioUrls", urls: list }).catch((e) => {
+      throw e;
+    });
+    if (result?.success) return;
+    throw new Error(result?.message || "Audio play failed");
+  }
+  async function playYoudaoDictVoice(word, type = 2) {
+    const primaryType = normalizeYoudaoType(type);
+    const secondaryType = primaryType === 1 ? 2 : 1;
+    const primaryUrl = buildYoudaoDictVoiceUrl(word, primaryType);
+    const secondaryUrl = buildYoudaoDictVoiceUrl(word, secondaryType);
+    await playAudioUrls([primaryUrl, secondaryUrl]);
+  }
+  async function playGoogleTranslateTts(text, lang) {
+    const url = buildGoogleTranslateTtsUrl(text, lang);
+    await playAudioUrls([url]);
+  }
+
   // js/ui/tooltip.js
   var TooltipManager = class {
     constructor() {
@@ -709,7 +764,23 @@
         lang = await detectLanguage(word);
       }
       if (!word) return;
+      const provider = this.config?.pronunciationProvider || "wiktionary";
+      if (provider === "google") {
+        try {
+          await playGoogleTranslateTts(word, lang);
+          return;
+        } catch (e) {
+        }
+      }
       if (lang === "en") {
+        const youdaoType = this.config?.youdaoPronunciationType ?? 2;
+        if (provider === "youdao") {
+          try {
+            await playYoudaoDictVoice(word, youdaoType);
+            return;
+          } catch (e) {
+          }
+        }
         try {
           await playDictionaryAudio(word, lang);
           return;
@@ -782,6 +853,8 @@
     // 行为设置
     autoProcess: false,
     showPhonetic: true,
+    pronunciationProvider: "wiktionary",
+    youdaoPronunciationType: 2,
     enabled: true,
     // 站点规则
     blacklist: [],
@@ -2214,6 +2287,8 @@ A1 \u2192 A2 \u2192 B1 \u2192 B2 \u2192 C1 \u2192 C2
           intensity: result.intensity || "medium",
           autoProcess: result.autoProcess ?? false,
           showPhonetic: result.showPhonetic ?? true,
+          pronunciationProvider: result.pronunciationProvider || "wiktionary",
+          youdaoPronunciationType: Number(result.youdaoPronunciationType) === 1 ? 1 : 2,
           translationStyle: result.translationStyle || "original-translation",
           enabled: result.enabled ?? true,
           blacklist: result.blacklist || [],

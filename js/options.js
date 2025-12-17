@@ -46,6 +46,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 行为设置
     autoProcess: document.getElementById('autoProcess'),
     showPhonetic: document.getElementById('showPhonetic'),
+    pronunciationProvider: document.getElementById('pronunciationProvider'),
+    youdaoPronunciationType: document.getElementById('youdaoPronunciationType'),
+    youdaoPronunciationSettings: document.getElementById('youdaoPronunciationSettings'),
     translationStyleRadios: document.querySelectorAll('input[name="translationStyle"]'),
 
     // 站点规则
@@ -107,6 +110,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       // 行为设置
       elements.autoProcess.checked = result.autoProcess ?? false;
       elements.showPhonetic.checked = result.showPhonetic ?? true;
+      elements.pronunciationProvider.value = result.pronunciationProvider || 'wiktionary';
+      elements.youdaoPronunciationType.value = String(result.youdaoPronunciationType ?? 2);
+      updatePronunciationSettingsVisibility();
       
       const translationStyle = result.translationStyle || 'original-translation';
       elements.translationStyleRadios.forEach(radio => {
@@ -123,6 +129,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       // 加载统计
       loadStats(result);
     });
+  }
+
+  function updatePronunciationSettingsVisibility() {
+    const provider = elements.pronunciationProvider?.value || 'wiktionary';
+    const targetLanguage = elements.targetLanguage?.value || 'en';
+    const useYoudao = provider === 'youdao' && targetLanguage === 'en';
+
+    if (elements.youdaoPronunciationSettings) elements.youdaoPronunciationSettings.hidden = !useYoudao;
+    if (elements.youdaoPronunciationType) elements.youdaoPronunciationType.disabled = !useYoudao;
   }
 
   // 存储原始数据（用于搜索和筛选）
@@ -340,6 +355,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       intensity: document.querySelector('input[name="intensity"]:checked').value,
       autoProcess: elements.autoProcess.checked,
       showPhonetic: elements.showPhonetic.checked,
+      pronunciationProvider: elements.pronunciationProvider.value,
+      youdaoPronunciationType: Number.parseInt(elements.youdaoPronunciationType.value, 10) === 1 ? 1 : 2,
       translationStyle: document.querySelector('input[name="translationStyle"]:checked').value,
       blacklist: elements.blacklistInput.value.split('\n').filter(s => s.trim()),
       whitelist: elements.whitelistInput.value.split('\n').filter(s => s.trim())
@@ -372,11 +389,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 下拉框 - 改变时保存
     const selects = [
       elements.nativeLanguage,
-      elements.targetLanguage
+      elements.targetLanguage,
+      elements.pronunciationProvider,
+      elements.youdaoPronunciationType
     ];
 
     selects.forEach(select => {
-      select.addEventListener('change', () => debouncedSave(200));
+      select.addEventListener('change', () => {
+        if (select === elements.targetLanguage || select === elements.pronunciationProvider) {
+          updatePronunciationSettingsVisibility();
+        }
+        debouncedSave(200);
+      });
     });
 
     // 滑块 - 改变时保存

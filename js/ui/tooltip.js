@@ -4,6 +4,7 @@
  */
 
 import { getDictionaryEntry, playDictionaryAudio } from './wiktionary.js';
+import { playGoogleTranslateTts, playYoudaoDictVoice } from './pronunciation.js';
 import { detectLanguage } from '../utils/language-detector.js';
 import { isSingleEnglishWord } from '../utils/word-filters.js';
 
@@ -333,7 +334,29 @@ export class TooltipManager {
 
     if (!word) return;
 
+    const provider = this.config?.pronunciationProvider || 'wiktionary';
+
+    if (provider === 'google') {
+      try {
+        await playGoogleTranslateTts(word, lang);
+        return;
+      } catch (e) {
+        // 降级到字典或 TTS
+      }
+    }
+
     if (lang === 'en') {
+      const youdaoType = this.config?.youdaoPronunciationType ?? 2;
+
+      if (provider === 'youdao') {
+        try {
+          await playYoudaoDictVoice(word, youdaoType);
+          return;
+        } catch (e) {
+          // 降级到 Wiktionary 或 TTS
+        }
+      }
+
       try {
         await playDictionaryAudio(word, lang);
         return;

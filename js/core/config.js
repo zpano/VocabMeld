@@ -79,6 +79,8 @@ export const DEFAULT_CONFIG = {
   // 行为设置
   autoProcess: false,
   showPhonetic: true,
+  pronunciationProvider: 'wiktionary',
+  youdaoPronunciationType: 2,
   enabled: true,
   
   // 站点规则
@@ -141,4 +143,3 @@ export function getLanguageName(code) {
   const lang = all.find(l => l.code === code);
   return lang ? lang.name : code;
 }
-

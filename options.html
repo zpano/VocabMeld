@@ -214,6 +214,25 @@
         </div>
 
         <div class="form-group">
+          <label for="pronunciationProvider">发音来源</label>
+          <p class="help-text">点击“发音”按钮时使用的音频来源（有道仅在学习语言为英语时生效；Google 在国内直连通常会超时）</p>
+          <select id="pronunciationProvider">
+            <option value="wiktionary">Wiktionary</option>
+            <option value="youdao">有道翻译(英语)</option>
+            <option value="google">Google 翻译 TTS(多语言)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="youdaoPronunciationSettings" hidden>
+          <label for="youdaoPronunciationType">有道口音</label>
+          <p class="help-text">接口：https://dict.youdao.com/dictvoice?audio={word}&type={1/2}（type=1 英音，type=2 美音）</p>
+          <select id="youdaoPronunciationType">
+            <option value="1">英音 (type=1)</option>
+            <option value="2">美音 (type=2)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label>翻译显示样式</label>
           <p class="help-text">选择翻译词汇在页面上的显示方式</p>
           <div class="style-selector">

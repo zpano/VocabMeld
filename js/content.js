@@ -27,6 +27,8 @@ async function loadConfig() {
         intensity: result.intensity || 'medium',
         autoProcess: result.autoProcess ?? false,
         showPhonetic: result.showPhonetic ?? true,
+        pronunciationProvider: result.pronunciationProvider || 'wiktionary',
+        youdaoPronunciationType: Number(result.youdaoPronunciationType) === 1 ? 1 : 2,
         translationStyle: result.translationStyle || 'original-translation',
         enabled: result.enabled ?? true,
         blacklist: result.blacklist || [],
