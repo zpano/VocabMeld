@@ -860,42 +860,44 @@
     // 异步调用 API，处理未缓存的词汇（不阻塞立即返回）
     const asyncPromise = (async () => {
       try {
-        const prompt = `You are a language learning assistant. Analyze the text and select useful words to translate.
+        // 系统提示词 - 包含核心指令和规则
+        const systemPrompt = `You are a professional language learning assistant. Your task is to analyze text and select valuable words for translation to help users learn new vocabulary.
 
-## Context:
-- Text language: ${sourceLang}
-- Translation target: ${targetLang}
-- Total words in text: ${totalWordCount}
-- Words to select: ${aiTargetCount}-${aiMaxCount} words
+## Your Mission:
+Select ${aiTargetCount}-${aiMaxCount} words with high learning value from the provided text.
 
-## Rules:
-1. Select ${aiTargetCount}-${aiMaxCount} words with learning value
-2. Do NOT replace: proper nouns, person/place/brand names, numbers, code, URLs, words already in the target language, English words shorter than 5 characters
-3. Prioritize words with learning value and a mix of difficulty levels
-4. Translation style: respect context; keep the mix comprehensible; prefer the single most suitable meaning rather than multiple senses
+## Translation Context:
+- Source language: ${sourceLang}
+- Target language: ${targetLang}
 
-## CEFR levels (easiest to hardest): A1, A2, B1, B2, C1, C2
+## Selection Rules (MUST FOLLOW):
+1. Select ONLY ${aiTargetCount}-${aiMaxCount} words total
+2. NEVER translate: proper nouns, person names, place names, brand names, numbers, code snippets, URLs
+3. SKIP: words already in the target language
+4. Prioritize: common useful vocabulary with mixed difficulty levels
+5. Translation style: context-aware, single best meaning (not multiple definitions)
 
-## Text:
-${filteredText}
+## CEFR Difficulty Levels:
+A1 → A2 → B1 → B2 → C1 → C2
 
-## Output:
-Return ONLY a JSON array. Example:
+## Example Output (JSON ONLY):
 [
   {
-    "original": "immersive",
-    "translation": "沉浸式的",
-    "phonetic": "chén jìn shì de",
+    "original": "艺术家",
+    "translation": "artist",
+    "phonetic": "ˈɑrtəst",
     "difficulty": "B2"
   },
   {
     "original": "技术",
     "translation": "technology",
-    "phonetic": "tek-nol-uh-jee",
+    "phonetic": "tɛkˈnɑləʤi",
     "difficulty": "A2"
   }
 ]`;
 
+        // 用户消息 - 只包含待处理文本
+        const userPrompt = `${filteredText}`;
 
         const response = await fetch(config.apiEndpoint, {
           method: 'POST',
@@ -906,8 +908,8 @@ Return ONLY a JSON array. Example:
           body: JSON.stringify({
             model: config.modelName,
             messages: [
-              { role: 'system', content: 'You are a professional language learning assistant. Always return valid JSON.' },
-              { role: 'user', content: prompt }
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
             ],
             temperature: 0,
             max_tokens: 4096
