@@ -92,6 +92,9 @@ export const DEFAULT_CONFIG = {
   todayWords: 0,
   lastResetDate: new Date().toISOString().split('T')[0],
   
+  // 缓存设置
+  cacheMaxSize: 2000,
+
   // 缓存统计
   cacheHits: 0,
   cacheMisses: 0
@@ -100,8 +103,26 @@ export const DEFAULT_CONFIG = {
 // 缓存配置
 export const CACHE_CONFIG = {
   maxSize: 2000,
+  maxSizeMax: 8192,
   storageKey: 'vocabmeld_word_cache'
 };
+
+export const CACHE_SIZE_LIMITS = {
+  min: 2000,
+  max: 8192
+};
+
+/**
+ * 规范化用户配置的缓存容量上限
+ * @param {unknown} value
+ * @param {number} fallback
+ * @returns {number}
+ */
+export function normalizeCacheMaxSize(value, fallback = CACHE_CONFIG.maxSize) {
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(CACHE_SIZE_LIMITS.max, Math.max(CACHE_SIZE_LIMITS.min, parsed));
+}
 
 // 需要跳过的标签
 export const SKIP_TAGS = [

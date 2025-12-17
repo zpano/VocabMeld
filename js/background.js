@@ -3,6 +3,8 @@
  * 处理扩展级别的事件和消息
  */
 
+import { CACHE_CONFIG, normalizeCacheMaxSize } from './core/config.js';
+
 async function ensureOffscreenDocument() {
   if (!chrome.offscreen?.createDocument) return false;
 
@@ -63,11 +65,16 @@ chrome.runtime.onInstalled.addListener((details) => {
       whitelist: [],
       learnedWords: [],
       memorizeList: [],
+      cacheMaxSize: 2000,
       totalWords: 0,
       todayWords: 0,
       lastResetDate: new Date().toISOString().split('T')[0],
       cacheHits: 0,
       cacheMisses: 0
+    });
+  } else {
+    chrome.storage.sync.get('cacheMaxSize', (result) => {
+      if (result.cacheMaxSize == null) chrome.storage.sync.set({ cacheMaxSize: 2000 });
     });
   }
   
@@ -281,9 +288,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getCacheStats') {
     chrome.storage.local.get('vocabmeld_word_cache', (result) => {
       const cache = result.vocabmeld_word_cache || [];
-      sendResponse({
-        size: cache.length,
-        maxSize: 2000
+      chrome.storage.sync.get('cacheMaxSize', (cfg) => {
+        const maxSize = normalizeCacheMaxSize(cfg.cacheMaxSize, CACHE_CONFIG.maxSize);
+        sendResponse({
+          size: cache.length,
+          maxSize
+        });
       });
     });
     return true;

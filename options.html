@@ -403,8 +403,20 @@ another-site.org"></textarea>
             <div class="cache-progress" id="cacheProgress"></div>
           </div>
           <div class="cache-info">
-            <span>已缓存: <strong id="statCacheSize">0</strong> / 2000</span>
+            <span>已缓存: <strong id="statCacheSize">0</strong> / <strong id="statCacheMaxSize">2000</strong></span>
             <span>命中率: <strong id="statHitRate">0%</strong></span>
+          </div>
+
+          <div class="form-group">
+            <label for="cacheMaxSize">缓存容量上限</label>
+            <div class="difficulty-selector cache-size-selector">
+              <input type="range" id="cacheMaxSize" min="2000" max="8192" value="2000" step="1">
+              <div class="difficulty-labels">
+                <span>2000</span>
+                <span>8192</span>
+              </div>
+            </div>
+            <p class="help-text">当前：<strong id="cacheMaxSizeValue">2000</strong>（调小会自动删除最旧缓存）</p>
           </div>
         </div>
 

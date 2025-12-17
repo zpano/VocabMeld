@@ -3,7 +3,7 @@
  * 实现热词缓存系统，支持 LRU 淘汰策略
  */
 
-import { CACHE_CONFIG } from '../core/config.js';
+import { CACHE_CONFIG, normalizeCacheMaxSize } from '../core/config.js';
 import { storage } from '../core/storage.js';
 
 /**
@@ -15,6 +15,29 @@ class CacheService {
     this.maxSize = CACHE_CONFIG.maxSize;
     this.initialized = false;
     this.initPromise = null;
+
+    try {
+      chrome.storage?.onChanged?.addListener((changes, area) => {
+        if (area !== 'sync') return;
+        if (!changes.cacheMaxSize) return;
+        this.setMaxSize(changes.cacheMaxSize.newValue);
+        void this.persist();
+      });
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  setMaxSize(maxSize) {
+    this.maxSize = normalizeCacheMaxSize(maxSize, CACHE_CONFIG.maxSize);
+    this.trimToMaxSize();
+  }
+
+  trimToMaxSize() {
+    while (this.cache.size > this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
   }
 
   /**
@@ -27,6 +50,9 @@ class CacheService {
 
     this.initPromise = (async () => {
       try {
+        const { cacheMaxSize } = await storage.get('cacheMaxSize');
+        this.maxSize = normalizeCacheMaxSize(cacheMaxSize, CACHE_CONFIG.maxSize);
+
         const data = await storage.getLocal(CACHE_CONFIG.storageKey);
         const cached = data[CACHE_CONFIG.storageKey];
         
@@ -44,9 +70,15 @@ class CacheService {
             });
           });
         }
+
+        const beforeTrim = this.cache.size;
+        this.trimToMaxSize();
+        if (this.cache.size !== beforeTrim) {
+          await this.persist();
+        }
         
         this.initialized = true;
-        console.log(`[VocabMeld] Cache initialized with ${this.cache.size} items`);
+        console.log(`[VocabMeld] Cache initialized with ${this.cache.size} items (max ${this.maxSize})`);
       } catch (error) {
         console.error('[VocabMeld] Failed to initialize cache:', error);
         this.initialized = true;

@@ -3,7 +3,7 @@
  * 处理与 LLM API 的通信，统一管理翻译逻辑
  */
 
-import { INTENSITY_CONFIG, isDifficultyCompatible, CACHE_CONFIG } from '../core/config.js';
+import { INTENSITY_CONFIG, isDifficultyCompatible, CACHE_CONFIG, normalizeCacheMaxSize } from '../core/config.js';
 import { cacheService } from './cache-service.js';
 import { buildVocabularySelectionPrompt, buildSpecificWordsPrompt } from '../prompts/ai-prompts.js';
 import { detectLanguage } from '../utils/language-detector.js';
@@ -111,6 +111,7 @@ class ApiService {
     const sourceLang = await detectLanguage(text);
     const targetLang = sourceLang === config.nativeLanguage ? config.targetLanguage : config.nativeLanguage;
     const maxReplacements = INTENSITY_CONFIG[config.intensity]?.maxPerParagraph || 8;
+    const maxCacheSize = normalizeCacheMaxSize(config?.cacheMaxSize, CACHE_CONFIG.maxSize);
 
     // 分词
     const segmentedWords = segmentText(text, sourceLang);
@@ -273,7 +274,7 @@ class ApiService {
           }
 
           // 如果达到上限，删除最早的项
-          while (cacheMap.size >= CACHE_CONFIG.maxSize) {
+          while (cacheMap.size >= maxCacheSize) {
             const firstKey = cacheMap.keys().next().value;
             cacheMap.delete(firstKey);
           }
@@ -370,6 +371,7 @@ class ApiService {
 
     const sourceLang = await detectLanguage(targetWords.join(' '));
     const targetLang = sourceLang === config.nativeLanguage ? config.targetLanguage : config.nativeLanguage;
+    const maxCacheSize = normalizeCacheMaxSize(config?.cacheMaxSize, CACHE_CONFIG.maxSize);
 
     const uncached = [];
     const cached = [];
@@ -457,7 +459,7 @@ class ApiService {
             cacheMap.delete(key);
           }
 
-          while (cacheMap.size >= CACHE_CONFIG.maxSize) {
+          while (cacheMap.size >= maxCacheSize) {
             const firstKey = cacheMap.keys().next().value;
             cacheMap.delete(firstKey);
           }

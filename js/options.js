@@ -13,6 +13,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  const DEFAULT_CACHE_MAX_SIZE = 2000;
+  const CACHE_MAX_SIZE_LIMIT = 8192;
+  const CACHE_MIN_SIZE_LIMIT = 2000;
+
+  function normalizeCacheMaxSize(value) {
+    const parsed = Number.parseInt(String(value), 10);
+    if (!Number.isFinite(parsed)) return DEFAULT_CACHE_MAX_SIZE;
+    return Math.min(CACHE_MAX_SIZE_LIMIT, Math.max(CACHE_MIN_SIZE_LIMIT, parsed));
+  }
 
   // 防抖保存函数
   let saveTimeout;
@@ -80,11 +89,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     statLearnedWords: document.getElementById('statLearnedWords'),
     statMemorizeWords: document.getElementById('statMemorizeWords'),
     statCacheSize: document.getElementById('statCacheSize'),
+    statCacheMaxSize: document.getElementById('statCacheMaxSize'),
     statHitRate: document.getElementById('statHitRate'),
     cacheProgress: document.getElementById('cacheProgress'),
+    cacheMaxSize: document.getElementById('cacheMaxSize'),
+    cacheMaxSizeValue: document.getElementById('cacheMaxSizeValue'),
     resetTodayBtn: document.getElementById('resetTodayBtn'),
     resetAllBtn: document.getElementById('resetAllBtn')
   };
+
+  let lastCacheMaxSize = DEFAULT_CACHE_MAX_SIZE;
+  let lastKnownCacheSize = 0;
+
+  function updateCacheMaxSizeLabel(value) {
+    const normalized = normalizeCacheMaxSize(value);
+    if (elements.cacheMaxSizeValue) elements.cacheMaxSizeValue.textContent = String(normalized);
+  }
+
+  function renderCacheStatus(cacheSize, cacheMaxSize) {
+    const normalizedMaxSize = normalizeCacheMaxSize(cacheMaxSize);
+    if (elements.statCacheSize) elements.statCacheSize.textContent = String(cacheSize);
+    if (elements.statCacheMaxSize) elements.statCacheMaxSize.textContent = String(normalizedMaxSize);
+    if (elements.cacheProgress) {
+      const percent = normalizedMaxSize > 0 ? Math.min(100, (cacheSize / normalizedMaxSize) * 100) : 0;
+      elements.cacheProgress.style.width = percent + '%';
+    }
+  }
 
   // 加载配置
   async function loadSettings() {
@@ -122,7 +152,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       // 站点规则
       elements.blacklistInput.value = (result.blacklist || []).join('\n');
       elements.whitelistInput.value = (result.whitelist || []).join('\n');
-      
+
+      // 缓存容量
+      const cacheMaxSize = normalizeCacheMaxSize(result.cacheMaxSize);
+      lastCacheMaxSize = cacheMaxSize;
+      if (elements.cacheMaxSize) elements.cacheMaxSize.value = String(cacheMaxSize);
+      updateCacheMaxSizeLabel(cacheMaxSize);
+      renderCacheStatus(lastKnownCacheSize, cacheMaxSize);
+
       // 加载词汇列表
       loadWordLists(result);
       
@@ -176,6 +213,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 加载缓存
     chrome.storage.local.get('vocabmeld_word_cache', (data) => {
       const cache = data.vocabmeld_word_cache || [];
+      lastKnownCacheSize = Array.isArray(cache) ? cache.length : 0;
       elements.cachedTabCount.textContent = cache.length;
       
       const cacheWords = cache.map(item => {
@@ -323,8 +361,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  async function trimLocalCacheToMaxSize(maxSize) {
+    const normalized = normalizeCacheMaxSize(maxSize);
+    return new Promise((resolve) => {
+      chrome.storage.local.get('vocabmeld_word_cache', (data) => {
+        const cache = data.vocabmeld_word_cache || [];
+        if (!Array.isArray(cache) || cache.length <= normalized) return resolve(false);
+        const trimmed = cache.slice(-normalized);
+        chrome.storage.local.set({ vocabmeld_word_cache: trimmed }, () => resolve(true));
+      });
+    });
+  }
+
   // 加载统计数据
   function loadStats(result) {
+    const cacheMaxSize = normalizeCacheMaxSize(result.cacheMaxSize);
+    if (elements.statCacheMaxSize) elements.statCacheMaxSize.textContent = String(cacheMaxSize);
+
     elements.statTotalWords.textContent = result.totalWords || 0;
     elements.statTodayWords.textContent = result.todayWords || 0;
     elements.statLearnedWords.textContent = (result.learnedWords || []).length;
@@ -338,13 +391,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     chrome.storage.local.get('vocabmeld_word_cache', (data) => {
       const cacheSize = (data.vocabmeld_word_cache || []).length;
-      elements.statCacheSize.textContent = cacheSize;
-      elements.cacheProgress.style.width = (cacheSize / 2000 * 100) + '%';
+      lastKnownCacheSize = cacheSize;
+      renderCacheStatus(cacheSize, cacheMaxSize);
     });
   }
 
   // 保存设置（静默保存）
   async function saveSettings() {
+    const normalizedCacheMaxSize = normalizeCacheMaxSize(elements.cacheMaxSize?.value);
+    if (elements.cacheMaxSize) elements.cacheMaxSize.value = String(normalizedCacheMaxSize);
+    updateCacheMaxSizeLabel(normalizedCacheMaxSize);
+    renderCacheStatus(lastKnownCacheSize, normalizedCacheMaxSize);
+
     const settings = {
       apiEndpoint: elements.apiEndpoint.value.trim(),
       apiKey: elements.apiKey.value.trim(),
@@ -359,12 +417,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       youdaoPronunciationType: Number.parseInt(elements.youdaoPronunciationType.value, 10) === 1 ? 1 : 2,
       translationStyle: document.querySelector('input[name="translationStyle"]:checked').value,
       blacklist: elements.blacklistInput.value.split('\n').filter(s => s.trim()),
-      whitelist: elements.whitelistInput.value.split('\n').filter(s => s.trim())
+      whitelist: elements.whitelistInput.value.split('\n').filter(s => s.trim()),
+      cacheMaxSize: normalizedCacheMaxSize
     };
 
     try {
       await chrome.storage.sync.set(settings);
       console.log('[VocabMeld] Settings saved automatically');
+
+      if (normalizedCacheMaxSize !== lastCacheMaxSize) {
+        lastCacheMaxSize = normalizedCacheMaxSize;
+        const trimmed = await trimLocalCacheToMaxSize(normalizedCacheMaxSize);
+        if (trimmed) {
+          lastKnownCacheSize = Math.min(lastKnownCacheSize, normalizedCacheMaxSize);
+          renderCacheStatus(lastKnownCacheSize, normalizedCacheMaxSize);
+          loadSettings();
+        }
+      }
     } catch (error) {
       console.error('[VocabMeld] Failed to save settings:', error);
     }
@@ -425,6 +494,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     checkboxes.forEach(checkbox => {
       checkbox.addEventListener('change', () => debouncedSave(200));
     });
+
+    if (elements.cacheMaxSize) {
+      elements.cacheMaxSize.addEventListener('input', () => {
+        const normalized = normalizeCacheMaxSize(elements.cacheMaxSize.value);
+        updateCacheMaxSizeLabel(normalized);
+        renderCacheStatus(lastKnownCacheSize, normalized);
+        debouncedSave(200);
+      });
+      elements.cacheMaxSize.addEventListener('change', () => {
+        const normalized = normalizeCacheMaxSize(elements.cacheMaxSize.value);
+        updateCacheMaxSizeLabel(normalized);
+        renderCacheStatus(lastKnownCacheSize, normalized);
+        debouncedSave(200);
+      });
+    }
   }
 
   // 更新难度标签

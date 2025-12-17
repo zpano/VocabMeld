@@ -43,7 +43,7 @@ VocabMeld 从以下优秀项目中汲取灵感，并在多个维度上进行了�
 ### 核心改进点
 
 1. **多 LLM 支持**：支持 OpenAI、DeepSeek、Moonshot 等主流 AI 服务，一次配置即可使用
-2. **智能缓存策略**：2000词 LRU 缓存，显著提升响应速度，降低使用成本
+2. **智能缓存策略**：默认 2000 词 LRU 缓存（可在设置中调节至 8192），显著提升响应速度，降低使用成本
 3. **精确难度控制**：基于 CEFR 标准的六级难度体系，本地过滤确保准确性
 4. **现代化架构**：持续维护，采用最新技术栈，提供更好的用户体验
 
@@ -114,10 +114,11 @@ LLM 根据以下规则选择替换词汇：
 ### 4. 热词缓存系统
 
 #### 4.1 缓存机制
-- **容量**：最多 2000 个词汇
+- **容量**：默认 2000，范围 2000-8192（可在设置页通过滑块调整）
 - **存储格式**：`原文:源语言:目标语言` 作为键
 - **持久化**：使用 `chrome.storage.local` 存储，跨会话保留
 - **LRU 淘汰**：达到上限时淘汰最早加入的词汇
+- **配置同步**：缓存上限使用 `chrome.storage.sync` 保存（键：`cacheMaxSize`）
 
 #### 4.2 缓存命中逻辑
 1. 发送 API 请求前，检查文本中是否有已缓存词汇
@@ -126,7 +127,7 @@ LLM 根据以下规则选择替换词汇：
 4. 新词汇处理完成后加入缓存
 
 #### 4.3 缓存统计与管理
-- 缓存词汇数量（最多2000个）
+- 缓存词汇数量（上限由用户设置）
 - 命中率百分比
 - **搜索功能**：支持按单词或翻译搜索
 - **难度筛选**：按 CEFR 等级（A1-C2）筛选
@@ -273,6 +274,9 @@ LLM 根据以下规则选择替换词汇：
 - 黑名单：永不处理的域名列表
 - 白名单：始终处理的域名列表
 
+#### 11.6 缓存设置
+- 缓存容量上限：滑块调节（范围 2000-8192，默认 2000；调小会自动删除最旧缓存）
+
 ---
 
 ## 支持的 API 服务
@@ -300,24 +304,37 @@ VocabMeld/
 │   ├── content.css         # 注入页面的样式
 │   ├── options.css         # 设置页面样式
 │   └── popup.css           # 弹出窗口样式
+├── dist/                   # 构建产物（content script bundle）
+│   ├── content.js
+│   └── content.js.map
 ├── icons/                  # 图标文件
 │   ├── icon.svg
 │   └── generate_icons.html # 图标生成工具
-├── js/                     # JavaScript 文件 (3,609 行)
+├── js/                     # JavaScript 源码
 │   ├── background.js       # 后台脚本
 │   ├── content.js          # 内容脚本 (核心逻辑)
+│   ├── offscreen-audio.js  # Offscreen 音频播放
 │   ├── options.js          # 设置页面脚本
 │   ├── popup.js            # 弹出窗口脚本
+│   ├── config/             # 配置常量
+│   │   └── constants.js
 │   ├── core/               # 核心模块
 │   │   ├── config.js       # 配置管理
 │   │   └── storage.js      # 存储服务
-│   └── services/           # 服务模块
+│   ├── prompts/            # 提示词模板
+│   │   └── ai-prompts.js
+│   ├── services/           # 服务模块
 │       ├── api-service.js  # API 服务
 │       ├── cache-service.js # 缓存服务
 │       ├── content-segmenter.js # 内容分段
-│       ├── processing-service.js # 处理服务
 │       └── text-replacer.js # 文本替换
+│   ├── ui/                 # UI 组件（Toast/Tooltip/发音等）
+│   └── utils/              # 工具函数（分词/过滤/语言检测等）
+├── vendor/                 # 第三方依赖打包
+│   ├── segmentit.bundle.js
+│   └── segmentit.bundle.js.map
 ├── manifest.json           # Chrome 扩展配置
+├── offscreen.html          # Offscreen Document
 ├── options.html            # 设置页面
 ├── popup.html              # 弹出窗口
 ├── package.json            # 项目配置
@@ -343,7 +360,7 @@ VocabMeld/
    - 大页面采用懒加载（滚动才按需翻译），动态内容采用防抖优化
 
 3. **智能缓存与状态管理**
-   - LRU 缓存机制：2000词容量，自动淘汰最少使用的词汇
+   - LRU 缓存机制：默认 2000 词容量（可调至 8192），自动淘汰最少使用的词汇
    - 并发控制：3个段落同时处理，平衡性能与稳定性
    - 状态追踪：防止重复处理，优化用户体验
 
@@ -380,7 +397,8 @@ function isDifficultyCompatible(wordDifficulty, userDifficulty) {
 - Chrome Extension Manifest V3
 - Vanilla JavaScript (ES6+)
 - CSS Variables + Modern CSS
+- esbuild（用于打包 `dist/content.js` 和 `vendor/segmentit.bundle.js`）
 
 ### 本地开发
-1. 修改代码后，在 `chrome://extensions/` 页面点击刷新按钮
-2. 或使用扩展开发工具的热重载功能
+1. 修改 `options.html/js/options.js`、`popup.html/js/popup.js`、`js/background.js` 等：在 `chrome://extensions/` 点击刷新即可
+2. 修改内容脚本相关代码（`js/content.js` 及其依赖模块）：先运行 `npm run build`（或 `npm run watch`），再到 `chrome://extensions/` 刷新扩展

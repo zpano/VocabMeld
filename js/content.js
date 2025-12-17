@@ -1,4 +1,5 @@
-import { CEFR_LEVELS, INTENSITY_CONFIG, SKIP_TAGS, SKIP_CLASSES, CACHE_MAX_SIZE } from './config/constants.js';
+import { CEFR_LEVELS, INTENSITY_CONFIG, SKIP_TAGS, SKIP_CLASSES } from './config/constants.js';
+import { CACHE_CONFIG, normalizeCacheMaxSize } from './core/config.js';
 import { initLanguageDetector, detectLanguage } from './utils/language-detector.js';
 import { isDifficultyCompatible, isCodeText, isNonLearningWord } from './utils/word-filters.js';
 import { TooltipManager } from './ui/tooltip.js';
@@ -31,6 +32,7 @@ async function loadConfig() {
         pronunciationProvider: result.pronunciationProvider || 'wiktionary',
         youdaoPronunciationType: Number(result.youdaoPronunciationType) === 1 ? 1 : 2,
         translationStyle: result.translationStyle || 'original-translation',
+        cacheMaxSize: normalizeCacheMaxSize(result.cacheMaxSize, CACHE_CONFIG.maxSize),
         enabled: result.enabled ?? true,
         blacklist: result.blacklist || [],
         whitelist: result.whitelist || [],
@@ -587,7 +589,7 @@ function setupEventListeners() {
   // 监听配置变化
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === 'sync') {
-      loadConfig().then(() => {
+      loadConfig().then(async () => {
         if (changes.enabled?.newValue === false) {
           restoreAll();
         }
@@ -596,6 +598,15 @@ function setupEventListeners() {
           if (config.enabled) {
             processPage();
           }
+        }
+        if (changes.cacheMaxSize) {
+          const maxSize = normalizeCacheMaxSize(changes.cacheMaxSize.newValue, CACHE_CONFIG.maxSize);
+          if (wordCache.size === 0) await loadWordCache();
+          while (wordCache.size > maxSize) {
+            const firstKey = wordCache.keys().next().value;
+            wordCache.delete(firstKey);
+          }
+          await saveWordCache();
         }
         if (changes.memorizeList) {
           const oldList = changes.memorizeList.oldValue || [];
