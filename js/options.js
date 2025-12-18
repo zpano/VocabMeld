@@ -16,11 +16,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   const DEFAULT_CACHE_MAX_SIZE = 2000;
   const CACHE_MAX_SIZE_LIMIT = 8192;
   const CACHE_MIN_SIZE_LIMIT = 2000;
+  const DEFAULT_CONCURRENCY_LIMIT = 5;
+  const DEFAULT_LENGTH_LIMIT = 20;
+  const CONCURRENCY_LIMIT_MAX = 20;
+  const LENGTH_LIMIT_MAX = 200;
 
   function normalizeCacheMaxSize(value) {
     const parsed = Number.parseInt(String(value), 10);
     if (!Number.isFinite(parsed)) return DEFAULT_CACHE_MAX_SIZE;
     return Math.min(CACHE_MAX_SIZE_LIMIT, Math.max(CACHE_MIN_SIZE_LIMIT, parsed));
+  }
+
+  function normalizePositiveInt(value, fallback, { min = 1, max = Number.MAX_SAFE_INTEGER } = {}) {
+    const parsed = Number.parseInt(String(value), 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+  }
+
+  function normalizeConcurrencyLimit(value) {
+    return normalizePositiveInt(value, DEFAULT_CONCURRENCY_LIMIT, { min: 1, max: CONCURRENCY_LIMIT_MAX });
+  }
+
+  function normalizeLengthLimit(value) {
+    return normalizePositiveInt(value, DEFAULT_LENGTH_LIMIT, { min: 1, max: LENGTH_LIMIT_MAX });
   }
 
   // 防抖保存函数
@@ -59,6 +77,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     youdaoPronunciationType: document.getElementById('youdaoPronunciationType'),
     youdaoPronunciationSettings: document.getElementById('youdaoPronunciationSettings'),
     translationStyleRadios: document.querySelectorAll('input[name="translationStyle"]'),
+
+    // 高级设置
+    concurrencyLimit: document.getElementById('concurrencyLimit'),
+    lengthLimit: document.getElementById('lengthLimit'),
 
     // 站点规则
     blacklistInput: document.getElementById('blacklistInput'),
@@ -152,6 +174,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       // 站点规则
       elements.blacklistInput.value = (result.blacklist || []).join('\n');
       elements.whitelistInput.value = (result.whitelist || []).join('\n');
+
+      // 高级设置
+      if (elements.concurrencyLimit) elements.concurrencyLimit.value = String(normalizeConcurrencyLimit(result.concurrencyLimit));
+      if (elements.lengthLimit) elements.lengthLimit.value = String(normalizeLengthLimit(result.lengthLimit));
 
       // 缓存容量
       const cacheMaxSize = normalizeCacheMaxSize(result.cacheMaxSize);
@@ -403,6 +429,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateCacheMaxSizeLabel(normalizedCacheMaxSize);
     renderCacheStatus(lastKnownCacheSize, normalizedCacheMaxSize);
 
+    const normalizedConcurrencyLimit = normalizeConcurrencyLimit(elements.concurrencyLimit?.value);
+    const normalizedLengthLimit = normalizeLengthLimit(elements.lengthLimit?.value);
+    if (elements.concurrencyLimit) elements.concurrencyLimit.value = String(normalizedConcurrencyLimit);
+    if (elements.lengthLimit) elements.lengthLimit.value = String(normalizedLengthLimit);
+
     const settings = {
       apiEndpoint: elements.apiEndpoint.value.trim(),
       apiKey: elements.apiKey.value.trim(),
@@ -418,7 +449,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       translationStyle: document.querySelector('input[name="translationStyle"]:checked').value,
       blacklist: elements.blacklistInput.value.split('\n').filter(s => s.trim()),
       whitelist: elements.whitelistInput.value.split('\n').filter(s => s.trim()),
-      cacheMaxSize: normalizedCacheMaxSize
+      cacheMaxSize: normalizedCacheMaxSize,
+      concurrencyLimit: normalizedConcurrencyLimit,
+      lengthLimit: normalizedLengthLimit
     };
 
     try {
@@ -470,6 +503,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         debouncedSave(200);
       });
+    });
+
+    const numberInputs = [
+      elements.concurrencyLimit,
+      elements.lengthLimit
+    ].filter(Boolean);
+
+    numberInputs.forEach(input => {
+      input.addEventListener('blur', () => debouncedSave(200));
+      input.addEventListener('change', () => debouncedSave(200));
+      input.addEventListener('input', () => debouncedSave(200));
     });
 
     // 滑块 - 改变时保存

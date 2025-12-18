@@ -95,6 +95,10 @@ export const DEFAULT_CONFIG = {
   // 缓存设置
   cacheMaxSize: 2000,
 
+  // 高级设置
+  concurrencyLimit: 5,
+  lengthLimit: 20,
+
   // 缓存统计
   cacheHits: 0,
   cacheMisses: 0
@@ -112,6 +116,11 @@ export const CACHE_SIZE_LIMITS = {
   max: 8192
 };
 
+export const ADVANCED_LIMITS = {
+  concurrencyLimit: { min: 1, max: 20 },
+  lengthLimit: { min: 1, max: 200 }
+};
+
 /**
  * 规范化用户配置的缓存容量上限
  * @param {unknown} value
@@ -122,6 +131,20 @@ export function normalizeCacheMaxSize(value, fallback = CACHE_CONFIG.maxSize) {
   const parsed = Number.parseInt(String(value), 10);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(CACHE_SIZE_LIMITS.max, Math.max(CACHE_SIZE_LIMITS.min, parsed));
+}
+
+function normalizeIntInRange(value, fallback, { min, max }) {
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+export function normalizeConcurrencyLimit(value, fallback = DEFAULT_CONFIG.concurrencyLimit) {
+  return normalizeIntInRange(value, fallback, ADVANCED_LIMITS.concurrencyLimit);
+}
+
+export function normalizeLengthLimit(value, fallback = DEFAULT_CONFIG.lengthLimit) {
+  return normalizeIntInRange(value, fallback, ADVANCED_LIMITS.lengthLimit);
 }
 
 // 需要跳过的标签

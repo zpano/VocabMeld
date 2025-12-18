@@ -1,5 +1,5 @@
 import { CEFR_LEVELS, INTENSITY_CONFIG, SKIP_TAGS, SKIP_CLASSES } from './config/constants.js';
-import { CACHE_CONFIG, normalizeCacheMaxSize } from './core/config.js';
+import { CACHE_CONFIG, normalizeCacheMaxSize, normalizeConcurrencyLimit, normalizeLengthLimit } from './core/config.js';
 import { initLanguageDetector, detectLanguage } from './utils/language-detector.js';
 import { isDifficultyCompatible, isCodeText, isNonLearningWord } from './utils/word-filters.js';
 import { TooltipManager } from './ui/tooltip.js';
@@ -34,6 +34,8 @@ async function loadConfig() {
         youdaoPronunciationType: Number(result.youdaoPronunciationType) === 1 ? 1 : 2,
         translationStyle: result.translationStyle || 'original-translation',
         cacheMaxSize: normalizeCacheMaxSize(result.cacheMaxSize, CACHE_CONFIG.maxSize),
+        concurrencyLimit: normalizeConcurrencyLimit(result.concurrencyLimit),
+        lengthLimit: normalizeLengthLimit(result.lengthLimit),
         enabled: result.enabled ?? true,
         blacklist: result.blacklist || [],
         whitelist: result.whitelist || [],
@@ -491,8 +493,10 @@ async function processPage(viewportOnly = false) {
       }
     }
 
+    const limitedSegments = validSegments.slice(0, normalizeLengthLimit(config.lengthLimit));
+
     // 并行处理单个 segment
-    const MAX_CONCURRENT = 3;
+    const MAX_CONCURRENT = normalizeConcurrencyLimit(config.concurrencyLimit);
 
     async function processSegment(segment) {
       const el = segment.element;
@@ -563,9 +567,9 @@ async function processPage(viewportOnly = false) {
     }
 
     // 分批并行处理
-    for (let i = 0; i < validSegments.length; i += MAX_CONCURRENT) {
+    for (let i = 0; i < limitedSegments.length; i += MAX_CONCURRENT) {
       if (runGeneration !== processingGeneration) break;
-      const batch = validSegments.slice(i, i + MAX_CONCURRENT);
+      const batch = limitedSegments.slice(i, i + MAX_CONCURRENT);
       const results = await Promise.all(batch.map(processSegment));
 
       for (const result of results) {

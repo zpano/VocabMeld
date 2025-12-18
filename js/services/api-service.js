@@ -3,7 +3,7 @@
  * 处理与 LLM API 的通信，统一管理翻译逻辑
  */
 
-import { INTENSITY_CONFIG, isDifficultyCompatible, CACHE_CONFIG, normalizeCacheMaxSize } from '../core/config.js';
+import { INTENSITY_CONFIG, isDifficultyCompatible, CACHE_CONFIG, normalizeCacheMaxSize, normalizeConcurrencyLimit } from '../core/config.js';
 import { cacheService } from './cache-service.js';
 import { buildVocabularySelectionPrompt, buildSpecificWordsPrompt } from '../prompts/ai-prompts.js';
 import { detectLanguage } from '../utils/language-detector.js';
@@ -17,7 +17,7 @@ class ApiService {
   constructor() {
     this.config = null;
     // Limit in-flight network requests to avoid browser-level queuing bursts.
-    this._maxConcurrentRequests = 3;
+    this._maxConcurrentRequests = 5;
     this._activeRequestCount = 0;
     this._requestQueue = [];
   }
@@ -53,6 +53,7 @@ class ApiService {
    */
   setConfig(config) {
     this.config = config;
+    this._maxConcurrentRequests = normalizeConcurrencyLimit(config?.concurrencyLimit, this._maxConcurrentRequests);
   }
 
   /**
@@ -133,6 +134,8 @@ class ApiService {
    * @returns {Promise<{immediate: Array, async: Promise|null}>}
    */
   async translateText(text, config, cacheMap, updateStatsCallback, saveCacheCallback) {
+    this._maxConcurrentRequests = normalizeConcurrencyLimit(config?.concurrencyLimit, this._maxConcurrentRequests);
+
     if (!config.apiKey || !config.apiEndpoint) {
       throw new Error('API 未配置');
     }
@@ -398,6 +401,8 @@ class ApiService {
    * @returns {Promise<Array>} 翻译结果
    */
   async translateSpecificWords(targetWords, config, cacheMap, updateStatsCallback, saveCacheCallback) {
+    this._maxConcurrentRequests = normalizeConcurrencyLimit(config?.concurrencyLimit, this._maxConcurrentRequests);
+
     if (!config.apiKey || !config.apiEndpoint || !targetWords?.length) {
       return [];
     }
