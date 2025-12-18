@@ -11,6 +11,7 @@ import { textReplacer } from './services/text-replacer.js';
 // ============ 状态管理 ============
 let config = null;
 let isProcessing = false;
+const WORD_CACHE_STORAGE_KEY = 'vocabmeld_word_cache';
 let wordCache = new Map();
 const tooltipManager = new TooltipManager();
 let processingGeneration = 0;
@@ -48,8 +49,8 @@ async function loadConfig() {
 
 async function loadWordCache() {
   return new Promise((resolve) => {
-    chrome.storage.local.get('vocabmeld_word_cache', (result) => {
-      const cached = result.vocabmeld_word_cache;
+    chrome.storage.local.get(WORD_CACHE_STORAGE_KEY, (result) => {
+      const cached = result[WORD_CACHE_STORAGE_KEY];
       if (cached && Array.isArray(cached)) {
         cached.forEach(item => {
           wordCache.set(item.key, {
@@ -73,7 +74,7 @@ async function saveWordCache() {
     data.push({ key, ...value });
   }
   return new Promise((resolve, reject) => {
-    chrome.storage.local.set({ vocabmeld_word_cache: data }, () => {
+    chrome.storage.local.set({ [WORD_CACHE_STORAGE_KEY]: data }, () => {
       if (chrome.runtime.lastError) {
         if (isContextInvalidated(chrome.runtime.lastError)) {
           return resolve();
@@ -90,6 +91,37 @@ async function saveWordCache() {
 let wordCacheSaveRequested = false;
 let wordCacheSaveTimer = null;
 let wordCacheSaveInFlight = Promise.resolve();
+let wordCacheClearInFlight = null;
+
+function removeWordCacheFromStorage() {
+  return new Promise((resolve) => {
+    chrome.storage.local.remove(WORD_CACHE_STORAGE_KEY, () => resolve());
+  });
+}
+
+async function clearWordCache({ removeStorage = true } = {}) {
+  if (wordCacheClearInFlight) return wordCacheClearInFlight;
+
+  wordCacheClearInFlight = (async () => {
+    wordCacheSaveRequested = false;
+    if (wordCacheSaveTimer) {
+      clearTimeout(wordCacheSaveTimer);
+      wordCacheSaveTimer = null;
+    }
+
+    const pending = wordCacheSaveInFlight.catch(() => {});
+    wordCache.clear();
+    await pending;
+
+    if (removeStorage) {
+      await removeWordCacheFromStorage();
+    }
+  })().finally(() => {
+    wordCacheClearInFlight = null;
+  });
+
+  return wordCacheClearInFlight;
+}
 
 async function runWordCacheSaveLoop() {
   while (wordCacheSaveRequested) {
@@ -658,6 +690,18 @@ function setupEventListeners() {
         }
       });
     }
+
+    // 本地缓存变化（例如：从 options 页清空缓存/重置所有数据）
+    if (areaName === 'local') {
+      if (wordCacheClearInFlight) return;
+      const cacheChange = changes?.[WORD_CACHE_STORAGE_KEY];
+      if (!cacheChange) return;
+
+      const next = cacheChange.newValue;
+      if (next == null || (Array.isArray(next) && next.length === 0)) {
+        void clearWordCache({ removeStorage: true });
+      }
+    }
   });
 
   // 监听来自 popup/background 的消息
@@ -694,6 +738,12 @@ function setupEventListeners() {
         isProcessing,
         enabled: config?.enabled
       });
+    }
+    if (message.action === 'clearCache' || message.action === 'resetAllData') {
+      clearWordCache({ removeStorage: true })
+        .then(() => sendResponse({ success: true }))
+        .catch((error) => sendResponse({ success: false, message: error?.message || String(error) }));
+      return true;
     }
   });
 }
