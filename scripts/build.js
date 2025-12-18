@@ -19,8 +19,22 @@ async function bundleSegmentit() {
 
   // 创建入口文件
   const entryContent = `
-const Segment = require('segmentit');
-window.Segment = Segment;
+const Segmentit = require('segmentit');
+
+// segmentit 的 CommonJS 导出是一个对象（包含 Segment 构造器、useDefault 等）
+// 为了兼容旧代码：暴露 window.Segment 为「构造器」而不是整个导出对象
+window.Segmentit = Segmentit;
+window.Segment = (typeof Segmentit === 'function' && Segmentit)
+  || (typeof Segmentit.Segment === 'function' && Segmentit.Segment)
+  || (typeof Segmentit.default === 'function' && Segmentit.default);
+
+// 兼容旧的 segment.useDefault() 调用方式
+if (window.Segment && window.Segment.prototype && typeof window.Segment.prototype.useDefault !== 'function' && typeof Segmentit.useDefault === 'function') {
+  window.Segment.prototype.useDefault = function() {
+    Segmentit.useDefault(this);
+    return this;
+  };
+}
 `;
 
   const entryPath = path.join(__dirname, 'segmentit-entry.js');

@@ -23,8 +23,27 @@ export function segmentText(text, lang) {
   // 中文分词
   if (isChineseLang) {
     try {
-      const segment = new window.Segment();
-      segment.useDefault();
+      // segmentit 在浏览器环境下会暴露为 window.Segmentit（或旧的 window.Segment）。
+      const segmentit = window.Segmentit || window.Segment;
+      if (!segmentit) {
+        throw new Error('segmentit not loaded');
+      }
+
+      const SegmentConstructor =
+        (typeof segmentit === 'function' && segmentit) ||
+        (typeof segmentit.Segment === 'function' && segmentit.Segment) ||
+        (typeof segmentit.default === 'function' && segmentit.default);
+
+      if (!SegmentConstructor) {
+        throw new TypeError('segmentit Segment constructor not found');
+      }
+
+      const segment = new SegmentConstructor();
+      if (typeof segment.useDefault === 'function') {
+        segment.useDefault();
+      } else if (typeof segmentit.useDefault === 'function') {
+        segmentit.useDefault(segment);
+      }
 
       const words = segment.doSegment(text, {
         simple: true,
