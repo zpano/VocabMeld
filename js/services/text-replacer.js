@@ -1,5 +1,5 @@
 /**
- * VocabMeld 文本替换器模块
+ * Sapling 文本替换器模块
  * 使用 Range API 精确替换文本节点
  */
 
@@ -256,7 +256,7 @@ class TextReplacer {
 
           break; // 每个替换项只替换一次
         } catch (e) {
-          console.error('[VocabMeld] Replacement error:', e, original);
+          console.error('[Sapling] Replacement error:', e, original);
         }
       }
     }

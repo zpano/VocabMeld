@@ -1,5 +1,5 @@
 /**
- * VocabMeld API 服务模块（重构版）
+ * Sapling API 服务模块（重构版）
  * 处理与 LLM API 的通信，统一管理翻译逻辑
  */
 
@@ -80,7 +80,7 @@ class ApiService {
         try {
           return JSON.parse(jsonMatch[0]);
         } catch (e2) {
-          console.error('[VocabMeld] Failed to parse API response:', e2);
+          console.error('[Sapling] Failed to parse API response:', e2);
         }
       }
       return [];
@@ -383,7 +383,7 @@ class ApiService {
         return mergedResults.slice(0, maxAsyncReplacements);
 
       } catch (error) {
-        console.error('[VocabMeld] Async translation error:', error);
+        console.error('[Sapling] Async translation error:', error);
         return [];
       }
     });
@@ -532,7 +532,7 @@ class ApiService {
         updateStatsCallback({ newWords: apiResults.length, cacheHits: cached.length, cacheMisses: 1 });
 
       } catch (error) {
-        console.error('[VocabMeld] translateSpecificWords error:', error);
+        console.error('[Sapling] translateSpecificWords error:', error);
       }
     }
 

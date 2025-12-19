@@ -1,5 +1,5 @@
 /**
- * VocabMeld 存储服务模块
+ * Sapling 存储服务模块
  * 封装 Chrome Storage API，提供统一的存储接口
  */
 

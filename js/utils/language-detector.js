@@ -1,5 +1,5 @@
 /**
- * VocabMeld 语言检测工具
+ * Sapling 语言检测工具
  * 提取自 content.js
  */
 
@@ -15,10 +15,10 @@ export async function initLanguageDetector() {
       languageDetector = await LanguageDetector.create({
         expectedInputLanguages: ['en', 'zh', 'ja', 'ko', 'fr', 'de', 'es']
       });
-      console.log('[VocabMeld] Native LanguageDetector initialized');
+      console.log('[Sapling] Native LanguageDetector initialized');
     }
   } catch (error) {
-    console.warn('[VocabMeld] LanguageDetector not available, using fallback:', error);
+    console.warn('[Sapling] LanguageDetector not available, using fallback:', error);
     languageDetector = null;
   }
 }
@@ -55,7 +55,7 @@ export async function detectLanguage(text) {
         return langCode;
       }
     } catch (error) {
-      console.warn('[VocabMeld] LanguageDetector error, using fallback:', error);
+      console.warn('[Sapling] LanguageDetector error, using fallback:', error);
       // 降级到 fallback
     }
   }

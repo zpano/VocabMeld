@@ -1,5 +1,5 @@
 /**
- * VocabMeld 构建脚本
+ * Sapling 构建脚本
  * 1. 生成不同尺寸的图标
  * 2. 打包 segmentit 为浏览器可用的独立文件
  */
@@ -75,7 +75,7 @@ if (!fs.existsSync(iconsDir)) {
 const generateIconsHtml = `<!DOCTYPE html>
 <html>
 <head>
-  <title>Generate VocabMeld Icons</title>
+  <title>Generate Sapling Icons</title>
   <style>
     body { font-family: sans-serif; padding: 20px; background: #1e293b; color: white; }
     .icon-grid { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
@@ -87,7 +87,7 @@ const generateIconsHtml = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <h1>VocabMeld Icon Generator</h1>
+  <h1>Sapling Icon Generator</h1>
   <p>点击按钮生成并下载图标文件</p>
   
   <div class="icon-grid" id="iconGrid"></div>
@@ -202,7 +202,7 @@ const generateIconsHtml = `<!DOCTYPE html>
 
 fs.writeFileSync(path.join(iconsDir, 'generate_icons.html'), generateIconsHtml);
 
-console.log('VocabMeld Build Script');
+console.log('Sapling Build Script');
 console.log('======================');
 console.log('');
 console.log('图标生成器已创建: icons/generate_icons.html');
@@ -231,7 +231,7 @@ async function bundleContentScript() {
       sourcemap: true,
       // 保留 IIFE 包装器以兼容 Chrome Extension
       banner: {
-        js: '// VocabMeld Content Script (Bundled)\n',
+        js: '// Sapling Content Script (Bundled)\n',
       },
     });
 

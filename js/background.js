@@ -1,5 +1,5 @@
 /**
- * VocabMeld 后台脚本
+ * Sapling 后台脚本
  * 处理扩展级别的事件和消息
  */
 
@@ -20,7 +20,7 @@ async function ensureOffscreenDocument() {
     });
     return true;
   } catch (error) {
-    console.warn('[VocabMeld] Failed to ensure offscreen document:', error);
+    console.warn('[Sapling] Failed to ensure offscreen document:', error);
     return false;
   }
 }
@@ -43,7 +43,7 @@ const MENU_ID_TOGGLE_PAGE = 'vocabmeld-process-page';
 
 // 安装/更新时初始化
 chrome.runtime.onInstalled.addListener((details) => {
-  console.log('[VocabMeld] Extension installed/updated:', details.reason);
+  console.log('[Sapling] Extension installed/updated:', details.reason);
   
   // 设置默认配置
   if (details.reason === 'install') {
@@ -177,7 +177,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
               action: 'processSpecificWords', 
               words: [word] 
             }).catch(err => {
-              console.log('[VocabMeld] Content script not ready, word will be processed on next page load');
+              console.log('[Sapling] Content script not ready, word will be processed on next page load');
             });
           });
         }
@@ -387,4 +387,4 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
   refreshTogglePageMenuTitle(activeInfo.tabId);
 });
 
-console.log('[VocabMeld] Background script loaded');
+console.log('[Sapling] Background script loaded');

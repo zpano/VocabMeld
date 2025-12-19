@@ -1,5 +1,5 @@
 /**
- * VocabMeld 文本处理工具
+ * Sapling 文本处理工具
  * 提取自 content.js
  */
 

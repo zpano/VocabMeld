@@ -1,7 +1,7 @@
-# VocabMeld - 沉浸式语言学习 Chrome 插件
+# Sapling - 沉浸式语言学习 Chrome 插件
 
 <p align="center">
-  <img src="icons/icon.svg" width="128" height="128" alt="VocabMeld Logo">
+  <img src="icons/icon.svg" width="128" height="128" alt="Sapling Logo">
 </p>
 
 <p align="center">
@@ -10,14 +10,14 @@
 </p>
 
 <p align="center">
-  <img src="preview.png" alt="VocabMeld Preview" width="100%">
+  <img src="preview.png" alt="Sapling Preview" width="100%">
 </p>
 
 ---
 
 ## 核心设计理念
 
-VocabMeld 基于语言学家 Stephen Krashen 的「**可理解性输入 (Comprehensible Input)**」理论设计：
+Sapling 基于语言学家 Stephen Krashen 的「**可理解性输入 (Comprehensible Input)**」理论设计：
 
 > 语言习得发生在我们理解比当前水平稍高一点的输入时 (i+1)
 
@@ -30,7 +30,7 @@ VocabMeld 基于语言学家 Stephen Krashen 的「**可理解性输入 (Compreh
 
 ## 项目灵感与致敬
 
-VocabMeld 从以下优秀项目中汲取灵感，并在多个维度上进行了显著改进：
+Sapling 从以下优秀项目中汲取灵感，并在多个维度上进行了显著改进：
 
 ### 参考项目对比
 
@@ -56,7 +56,7 @@ VocabMeld 从以下优秀项目中汲取灵感，并在多个维度上进行了�
 1. 打开 Chrome 浏览器，访问 `chrome://extensions/`
 2. 开启右上角的"开发者模式"
 3. 点击"加载已解压的扩展程序"
-4. 选择 `VocabMeld` 文件夹
+4. 选择 `Sapling` 文件夹
 
 ### 2. 配置 API
 
@@ -302,7 +302,7 @@ LLM 根据以下规则选择替换词汇：
 ## 项目结构
 
 ```
-VocabMeld/
+Sapling/
 ├── _locales/               # 国际化文件
 │   ├── en/
 │   │   └── messages.json

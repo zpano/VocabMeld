@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "VocabMeld - 沉浸式语言学习",
+    "message": "Sapling - 沉浸式语言学习",
     "description": "扩展名称"
   },
   "extensionDescription": {
@@ -12,7 +12,7 @@
     "description": "快捷键描述"
   },
   "popupTitle": {
-    "message": "VocabMeld",
+    "message": "Sapling",
     "description": "弹出窗口标题"
   },
   "statsTitle": {
@@ -60,7 +60,7 @@
     "description": "禁用状态"
   },
   "settingsTitle": {
-    "message": "VocabMeld 设置",
+    "message": "Sapling 设置",
     "description": "设置页面标题"
   },
   "apiSettings": {

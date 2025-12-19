@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "VocabMeld - Immersive Language Learning",
+    "message": "Sapling - Immersive Language Learning",
     "description": "Extension name"
   },
   "extensionDescription": {
@@ -12,7 +12,7 @@
     "description": "Keyboard shortcut description"
   },
   "popupTitle": {
-    "message": "VocabMeld",
+    "message": "Sapling",
     "description": "Popup title"
   },
   "statsTitle": {
@@ -60,7 +60,7 @@
     "description": "Disabled status"
   },
   "settingsTitle": {
-    "message": "VocabMeld Settings",
+    "message": "Sapling Settings",
     "description": "Settings page title"
   },
   "apiSettings": {

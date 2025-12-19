@@ -1,5 +1,5 @@
 /**
- * VocabMeld Tooltip 管理器
+ * Sapling Tooltip 管理器
  * 提取自 content.js
  */
 

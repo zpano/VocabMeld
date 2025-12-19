@@ -1,5 +1,5 @@
 /**
- * VocabMeld Options 脚本 - 自动保存版本
+ * Sapling Options 脚本 - 自动保存版本
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -540,7 +540,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       await chrome.storage.sync.set(settings);
-      console.log(`[VocabMeld] Settings saved (${source})`);
+      console.log(`[Sapling] Settings saved (${source})`);
       lastSavedSettingsJson = settingsJson;
 
       if (isManual) {
@@ -559,7 +559,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
     } catch (error) {
-      console.error('[VocabMeld] Failed to save settings:', error);
+      console.error('[Sapling] Failed to save settings:', error);
       if (isManual) {
         showOptionsToast('保存失败，请稍后重试', { type: 'error', durationMs: 3600 });
       } else if (shouldShowAutoSaveErrorToast()) {

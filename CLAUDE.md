@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-VocabMeld is a Chrome Extension (Manifest V3) for immersive language learning. It intelligently replaces vocabulary in web pages with translations, allowing users to naturally acquire languages through "Comprehensible Input" (Stephen Krashen's theory).
+Sapling is a Chrome Extension (Manifest V3) for immersive language learning. It intelligently replaces vocabulary in web pages with translations, allowing users to naturally acquire languages through "Comprehensible Input" (Stephen Krashen's theory).
 
 ## Build Commands
 

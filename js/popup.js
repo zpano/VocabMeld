@@ -1,5 +1,5 @@
 /**
- * VocabMeld Popup 脚本
+ * Sapling Popup 脚本
  */
 
 document.addEventListener('DOMContentLoaded', async () => {

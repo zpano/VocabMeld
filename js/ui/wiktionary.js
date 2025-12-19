@@ -1,5 +1,5 @@
 /**
- * VocabMeld Wiktionary 词典集成
+ * Sapling Wiktionary 词典集成
  * 提取自 content.js
  */
 
@@ -283,7 +283,7 @@ async function getDictionaryEntryInternal(word, langCode, depth, visited) {
 
     // 检查错误或缺失页面
     if (data.error || !data.parse || !data.parse.text) {
-      console.warn(`[VocabMeld] Word not found: ${word}`);
+      console.warn(`[Sapling] Word not found: ${word}`);
       dictionaryCache.set(cacheKey, null);
       await setPersistentCacheValue(cacheKey, null);
       return null;
@@ -374,7 +374,7 @@ async function getDictionaryEntryInternal(word, langCode, depth, visited) {
     await setPersistentCacheValue(cacheKey, entry);
     return entry;
   } catch (error) {
-    console.error('[VocabMeld] Dictionary lookup error:', error);
+    console.error('[Sapling] Dictionary lookup error:', error);
     dictionaryCache.set(cacheKey, null);
     await setPersistentCacheValue(cacheKey, null);
     return null;
@@ -402,7 +402,7 @@ export async function playDictionaryAudio(word, langCode = 'en') {
     if (result?.success) return;
     throw new Error(result?.message || 'Audio play failed');
   } catch (error) {
-    console.warn('[VocabMeld] Dictionary audio failed:', error);
+    console.warn('[Sapling] Dictionary audio failed:', error);
     throw error;
   }
 }

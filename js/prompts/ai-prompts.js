@@ -1,5 +1,5 @@
 /**
- * VocabMeld AI Prompts Module
+ * Sapling AI Prompts Module
  * 统一管理所有 AI 提示词模板
  */
 

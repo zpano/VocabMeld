@@ -1,5 +1,5 @@
 /**
- * VocabMeld 发音音频源
+ * Sapling 发音音频源
  */
 
 function normalizeYoudaoType(type) {

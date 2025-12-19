@@ -1,5 +1,5 @@
 /**
- * VocabMeld Toast 通知组件
+ * Sapling Toast 通知组件
  * 提取自 content.js
  */
 

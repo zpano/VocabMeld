@@ -1,5 +1,5 @@
 /**
- * VocabMeld 单词过滤工具
+ * Sapling 单词过滤工具
  * 提取自 content.js
  */
 

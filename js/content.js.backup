@@ -1,5 +1,5 @@
 /**
- * VocabMeld 内容脚本
+ * Sapling 内容脚本
  * 注入到网页中，处理词汇替换和用户交互
  */
 
@@ -69,10 +69,10 @@
         languageDetector = await LanguageDetector.create({
           expectedInputLanguages: ['en', 'zh', 'ja', 'ko', 'fr', 'de', 'es']
         });
-        console.log('[VocabMeld] Native LanguageDetector initialized');
+        console.log('[Sapling] Native LanguageDetector initialized');
       }
     } catch (error) {
-      console.warn('[VocabMeld] LanguageDetector not available, using fallback:', error);
+      console.warn('[Sapling] LanguageDetector not available, using fallback:', error);
       languageDetector = null;
     }
   }
@@ -109,7 +109,7 @@
           return langCode;
         }
       } catch (error) {
-        console.warn('[VocabMeld] LanguageDetector error, using fallback:', error);
+        console.warn('[Sapling] LanguageDetector error, using fallback:', error);
         // Fall through to fallback
       }
     }
@@ -268,7 +268,7 @@
             // Extension was reloaded/unloaded; ignore
             return resolve();
           }
-          console.error('[VocabMeld] Failed to save cache:', chrome.runtime.lastError);
+          console.error('[Sapling] Failed to save cache:', chrome.runtime.lastError);
           return reject(chrome.runtime.lastError);
         }
         resolve();
@@ -286,7 +286,7 @@
       chrome.storage.sync.get(['totalWords', 'todayWords', 'lastResetDate', 'cacheHits', 'cacheMisses'], (current) => {
         if (chrome.runtime.lastError) {
           if (!isContextInvalidated(chrome.runtime.lastError)) {
-            console.warn('[VocabMeld] Stats read failed:', chrome.runtime.lastError);
+            console.warn('[Sapling] Stats read failed:', chrome.runtime.lastError);
           }
           return resolve(null);
         }
@@ -307,7 +307,7 @@
         chrome.storage.sync.set(updated, () => {
           if (chrome.runtime.lastError) {
             if (!isContextInvalidated(chrome.runtime.lastError)) {
-              console.warn('[VocabMeld] Stats write failed:', chrome.runtime.lastError);
+              console.warn('[Sapling] Stats write failed:', chrome.runtime.lastError);
             }
             return resolve(null);
           }
@@ -334,7 +334,7 @@
 
   async function addToMemorizeList(word) {
     if (!word || !word.trim()) {
-      console.warn('[VocabMeld] Invalid word for memorize list:', word);
+      console.warn('[Sapling] Invalid word for memorize list:', word);
       return;
     }
 
@@ -371,12 +371,12 @@
             await translateSpecificWords([trimmedWord]);
             showToast(`"${trimmedWord}" 已添加到记忆列表`);
           } catch (error) {
-            console.error('[VocabMeld] Error translating word:', trimmedWord, error);
+            console.error('[Sapling] Error translating word:', trimmedWord, error);
             showToast(`"${trimmedWord}" 已添加到记忆列表`);
           }
         }
       } catch (error) {
-        console.error('[VocabMeld] Error processing word:', trimmedWord, error);
+        console.error('[Sapling] Error processing word:', trimmedWord, error);
         showToast(`"${trimmedWord}" 已添加到记忆列表`);
       }
     } else {
@@ -645,7 +645,7 @@
           // 找到匹配后立即跳出，因为DOM结构已改变，需要重新获取节点
           break;
         } catch (e) {
-          console.error('[VocabMeld] Replacement error:', e, original);
+          console.error('[Sapling] Replacement error:', e, original);
         }
       }
     }
@@ -1066,7 +1066,7 @@ A1 → A2 → B1 → B2 → C1 → C2
 
       } catch (error) {
         if (isContextInvalidated(error)) {
-          console.debug('[VocabMeld] Async API skipped: extension context invalidated.');
+          console.debug('[Sapling] Async API skipped: extension context invalidated.');
         } else if (error instanceof TypeError && error.message === 'Failed to fetch') {
           logApiError('asyncTranslation', error, {
             sourceLang,
@@ -1249,7 +1249,7 @@ Return only the JSON array and nothing else.`;
 
       } catch (error) {
         if (isContextInvalidated(error)) {
-          console.debug('[VocabMeld] Specific-word API skipped: extension context invalidated.');
+          console.debug('[Sapling] Specific-word API skipped: extension context invalidated.');
         } else {
           logApiError('specificWords', error, {
             sourceLang,
@@ -1447,7 +1447,7 @@ Return only the JSON array and nothing else.`;
           const memorizeCount = await processSpecificWords(memorizeWords);
           processed += memorizeCount;
         } catch (e) {
-          console.error('[VocabMeld] Error processing memorize list:', e);
+          console.error('[Sapling] Error processing memorize list:', e);
           errors++;
         }
       }
@@ -1513,7 +1513,7 @@ Return only the JSON array and nothing else.`;
                 el.classList.remove('vocabmeld-processing');
               }
             }).catch(error => {
-              console.error('[VocabMeld] Async translation error:', error);
+              console.error('[Sapling] Async translation error:', error);
               el.classList.remove('vocabmeld-processing');
             });
           } else {
@@ -1522,7 +1522,7 @@ Return only the JSON array and nothing else.`;
           
           return { count: immediateCount, error: false };
         } catch (e) {
-          console.error('[VocabMeld] Segment error:', e);
+          console.error('[Sapling] Segment error:', e);
           el.classList.remove('vocabmeld-processing');
           return { count: 0, error: true };
         }
@@ -1772,7 +1772,7 @@ Return only the JSON array and nothing else.`;
 
       // 3. Check for errors or missing page
       if (data.error || !data.parse || !data.parse.text) {
-        console.warn(`[VocabMeld] Word not found: ${word}`);
+        console.warn(`[Sapling] Word not found: ${word}`);
         dictionaryCache.set(cacheKey, null);
         return null;
       }
@@ -1860,7 +1860,7 @@ Return only the JSON array and nothing else.`;
       dictionaryCache.set(cacheKey, entry);
       return entry;
     } catch (error) {
-      console.error('[VocabMeld] Dictionary lookup error:', error);
+      console.error('[Sapling] Dictionary lookup error:', error);
       dictionaryCache.set(cacheKey, null);
       return null;
     }
@@ -1882,7 +1882,7 @@ Return only the JSON array and nothing else.`;
       currentAudio = new Audio(audioUrl);
       await currentAudio.play();
     } catch (error) {
-      console.warn('[VocabMeld] Dictionary audio failed:', error);
+      console.warn('[Sapling] Dictionary audio failed:', error);
       throw error;
     }
   }
@@ -2056,7 +2056,7 @@ Return only the JSON array and nothing else.`;
           processSpecificWords(words).then(count => {
             sendResponse({ success: true, count });
           }).catch(error => {
-            console.error('[VocabMeld] Error processing specific words:', error);
+            console.error('[Sapling] Error processing specific words:', error);
             sendResponse({ success: false, error: error.message });
           });
           return true; // 保持消息通道开放以支持异步响应
@@ -2089,7 +2089,7 @@ Return only the JSON array and nothing else.`;
     }
 
     // Initialized successfully
-    if (false) console.log('[VocabMeld] Initialized successfully, config:', {
+    if (false) console.log('[Sapling] Initialized successfully, config:', {
       autoProcess: config.autoProcess,
       enabled: config.enabled,
       hasApiKey: !!config.apiKey,

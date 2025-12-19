@@ -1,5 +1,5 @@
 /**
- * VocabMeld 缓存服务模块
+ * Sapling 缓存服务模块
  * 实现热词缓存系统，支持 LRU 淘汰策略
  */
 
@@ -78,9 +78,9 @@ class CacheService {
         }
         
         this.initialized = true;
-        console.log(`[VocabMeld] Cache initialized with ${this.cache.size} items (max ${this.maxSize})`);
+        console.log(`[Sapling] Cache initialized with ${this.cache.size} items (max ${this.maxSize})`);
       } catch (error) {
-        console.error('[VocabMeld] Failed to initialize cache:', error);
+        console.error('[Sapling] Failed to initialize cache:', error);
         this.initialized = true;
       }
     })();
@@ -230,7 +230,7 @@ class CacheService {
         [CACHE_CONFIG.storageKey]: data
       });
     } catch (error) {
-      console.error('[VocabMeld] Failed to persist cache:', error);
+      console.error('[Sapling] Failed to persist cache:', error);
     }
   }
 
@@ -241,7 +241,7 @@ class CacheService {
   async clear() {
     this.cache.clear();
     await storage.removeLocal(CACHE_CONFIG.storageKey);
-    console.log('[VocabMeld] Cache cleared');
+    console.log('[Sapling] Cache cleared');
   }
 
   /**

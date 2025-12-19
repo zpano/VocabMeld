@@ -60,7 +60,7 @@ async function loadConfig() {
         const lastError = chrome?.runtime?.lastError;
         if (lastError) {
           if (!isContextInvalidated(lastError)) {
-            console.warn('[VocabMeld] Config read failed:', lastError);
+            console.warn('[Sapling] Config read failed:', lastError);
           }
           return applyConfig(config || {});
         }
@@ -68,7 +68,7 @@ async function loadConfig() {
       });
     } catch (error) {
       if (!isContextInvalidated(error)) {
-        console.warn('[VocabMeld] Config read threw:', error);
+        console.warn('[Sapling] Config read threw:', error);
       }
       applyConfig(config || {});
     }
@@ -86,7 +86,7 @@ async function loadWordCache() {
         const lastError = chrome?.runtime?.lastError;
         if (lastError) {
           if (!isContextInvalidated(lastError)) {
-            console.warn('[VocabMeld] Cache read failed:', lastError);
+            console.warn('[Sapling] Cache read failed:', lastError);
           }
           return resolve(wordCache);
         }
@@ -108,7 +108,7 @@ async function loadWordCache() {
       });
     } catch (error) {
       if (!isContextInvalidated(error)) {
-        console.warn('[VocabMeld] Cache read threw:', error);
+        console.warn('[Sapling] Cache read threw:', error);
       }
       resolve(wordCache);
     }
@@ -130,7 +130,7 @@ async function saveWordCache() {
           if (isContextInvalidated(lastError)) {
             return resolve();
           }
-          console.error('[VocabMeld] Failed to save cache:', lastError);
+          console.error('[Sapling] Failed to save cache:', lastError);
           return reject(lastError);
         }
         resolve();
@@ -139,7 +139,7 @@ async function saveWordCache() {
       if (isContextInvalidated(error)) {
         return resolve();
       }
-      console.error('[VocabMeld] Failed to save cache (threw):', error);
+      console.error('[Sapling] Failed to save cache (threw):', error);
       reject(error);
     }
   });
@@ -158,7 +158,7 @@ function removeWordCacheFromStorage() {
       chrome.storage.local.remove(WORD_CACHE_STORAGE_KEY, () => resolve());
     } catch (error) {
       if (!isContextInvalidated(error)) {
-        console.warn('[VocabMeld] Cache remove threw:', error);
+        console.warn('[Sapling] Cache remove threw:', error);
       }
       resolve();
     }
@@ -234,7 +234,7 @@ async function updateStats(stats) {
         const readError = chrome?.runtime?.lastError;
         if (readError) {
           if (!isContextInvalidated(readError)) {
-            console.warn('[VocabMeld] Stats read failed:', readError);
+            console.warn('[Sapling] Stats read failed:', readError);
           }
           return resolve(null);
         }
@@ -257,7 +257,7 @@ async function updateStats(stats) {
             const writeError = chrome?.runtime?.lastError;
             if (writeError) {
               if (!isContextInvalidated(writeError)) {
-                console.warn('[VocabMeld] Stats write failed:', writeError);
+                console.warn('[Sapling] Stats write failed:', writeError);
               }
               return resolve(null);
             }
@@ -265,14 +265,14 @@ async function updateStats(stats) {
           });
         } catch (error) {
           if (!isContextInvalidated(error)) {
-            console.warn('[VocabMeld] Stats write threw:', error);
+            console.warn('[Sapling] Stats write threw:', error);
           }
           resolve(null);
         }
       });
     } catch (error) {
       if (!isContextInvalidated(error)) {
-        console.warn('[VocabMeld] Stats read threw:', error);
+        console.warn('[Sapling] Stats read threw:', error);
       }
       resolve(null);
     }
@@ -296,7 +296,7 @@ async function addToWhitelist(original, translation, difficulty) {
         chrome.storage.sync.set({ learnedWords: whitelist }, () => resolve());
       } catch (error) {
         if (!isContextInvalidated(error)) {
-          console.warn('[VocabMeld] Whitelist save threw:', error);
+          console.warn('[Sapling] Whitelist save threw:', error);
         }
         resolve();
       }
@@ -306,7 +306,7 @@ async function addToWhitelist(original, translation, difficulty) {
 
 async function addToMemorizeList(word) {
   if (!word || !word.trim()) {
-    console.warn('[VocabMeld] Invalid word for memorize list:', word);
+    console.warn('[Sapling] Invalid word for memorize list:', word);
     return;
   }
 
@@ -323,7 +323,7 @@ async function addToMemorizeList(word) {
         chrome.storage.sync.set({ memorizeList: list }, () => resolve());
       } catch (error) {
         if (!isContextInvalidated(error)) {
-          console.warn('[VocabMeld] Memorize list save threw:', error);
+          console.warn('[Sapling] Memorize list save threw:', error);
         }
         resolve();
       }
@@ -348,12 +348,12 @@ async function addToMemorizeList(word) {
           await translateSpecificWords([trimmedWord]);
           showToast(`"${trimmedWord}" 已添加到记忆列表`);
         } catch (error) {
-          console.error('[VocabMeld] Error translating word:', trimmedWord, error);
+          console.error('[Sapling] Error translating word:', trimmedWord, error);
           showToast(`"${trimmedWord}" 已添加到记忆列表`);
         }
       }
     } catch (error) {
-      console.error('[VocabMeld] Error processing word:', trimmedWord, error);
+      console.error('[Sapling] Error processing word:', trimmedWord, error);
       showToast(`"${trimmedWord}" 已添加到记忆列表`);
     }
   } else {
@@ -593,7 +593,7 @@ async function processPage(viewportOnly = false) {
         const memorizeCount = await processSpecificWords(memorizeWords);
         processed += memorizeCount;
       } catch (e) {
-        console.error('[VocabMeld] Error processing memorize list:', e);
+        console.error('[Sapling] Error processing memorize list:', e);
         errors++;
       }
     }
@@ -673,7 +673,7 @@ async function processPage(viewportOnly = false) {
               el.classList.remove('vocabmeld-processing');
             }
           }).catch(error => {
-            console.error('[VocabMeld] Async translation error:', error);
+            console.error('[Sapling] Async translation error:', error);
             el.classList.remove('vocabmeld-processing');
           });
         } else {
@@ -682,7 +682,7 @@ async function processPage(viewportOnly = false) {
 
         return { count: immediateCount, error: false };
       } catch (e) {
-        console.error('[VocabMeld] Segment error:', e);
+        console.error('[Sapling] Segment error:', e);
         el.classList.remove('vocabmeld-processing');
         return { count: 0, error: true };
       }
@@ -865,7 +865,7 @@ function setupEventListeners() {
         processSpecificWords(words).then(count => {
           sendResponse({ success: true, count });
         }).catch(error => {
-          console.error('[VocabMeld] Error processing specific words:', error);
+          console.error('[Sapling] Error processing specific words:', error);
           sendResponse({ success: false, error: error.message });
         });
         return true;
@@ -919,7 +919,7 @@ async function init() {
     setTimeout(() => processPage(), 1000);
   }
 
-  console.log('[VocabMeld] 初始化完成 (模块化重构版)');
+  console.log('[Sapling] 初始化完成 (模块化重构版)');
 }
 
 // 启动
