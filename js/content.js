@@ -819,6 +819,14 @@ function setupEventListeners() {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === 'sync') {
       loadConfig().then(async () => {
+        // 检查是否在黑名单中（动态变更）
+        const hostname = window.location.hostname;
+        if (config.blacklist?.some(domain => hostname.includes(domain))) {
+          console.log('[Sapling] Site added to blacklist, restoring original content.');
+          restoreAll();
+          return;
+        }
+
         if (changes.enabled?.newValue === false) {
           restoreAll();
         }
@@ -945,7 +953,6 @@ async function init() {
     setTimeout(() => processPage(), 1000);
   }
 
-  console.log('[Sapling] 初始化完成 (模块化重构版)');
   console.log('[Sapling] 初始化完成 (模块化重构版)');
 }
 
