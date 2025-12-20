@@ -22,6 +22,7 @@ let processingGeneration = 0;
 async function loadConfig() {
   return new Promise((resolve) => {
     const applyConfig = (result = {}) => {
+      console.log('[Sapling] Applying config:', result);
       const safeResult = result || {};
       config = {
         apiEndpoint: safeResult.apiEndpoint || 'https://api.deepseek.com/chat/completions',
@@ -809,6 +810,7 @@ function setupEventListeners() {
 
   // 滚动处理
   const handleScroll = debounce(() => {
+    if (config.blacklist?.some(domain => window.location.hostname.includes(domain))) return;
     if (config?.autoProcess && config?.enabled) {
       processPage(true);
     }
@@ -878,6 +880,11 @@ function setupEventListeners() {
   // 监听来自 popup/background 的消息
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'processPage') {
+      if (config.blacklist?.some(domain => window.location.hostname.includes(domain))) {
+         console.log('[Sapling] Ignoring processPage request for blacklisted site');
+         sendResponse({ processed: 0, blacklisted: true });
+         return true;
+      }
       processPage().then(sendResponse);
       return true;
     }
@@ -933,6 +940,7 @@ async function init() {
   await loadConfig();
 
   const hostname = window.location.hostname;
+  console.log('[Sapling] Checking blacklist for:', hostname, 'Blacklist:', config.blacklist);
   if (config.blacklist?.some(domain => hostname.includes(domain))) {
     console.log('[Sapling] Current site is blacklisted, stopping initialization.');
     return;
@@ -957,8 +965,13 @@ async function init() {
 }
 
 // 启动
+console.log('[Sapling] Content script loaded, readyState:', document.readyState);
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('[Sapling] DOMContentLoaded fired, calling init()');
+    init();
+  });
 } else {
+  console.log('[Sapling] Document ready, calling init() directly');
   init();
 }
