@@ -119,3 +119,6 @@ Uses Chrome Extension i18n API. Messages in `/_locales/{locale}/messages.json`. 
 | Modify word filtering | `js/utils/word-filters.js`, `js/config/constants.js` |
 | Change storage behavior | `js/core/storage.js`, `js/services/cache-service.js` |
 | Update popup/options UI | `js/popup.js`, `js/options.js`, corresponding HTML/CSS |
+
+# User Custom Rules
+1. Use auggie mcp to get code context > built-in tools > shell commands

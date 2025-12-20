@@ -7,6 +7,7 @@ let languageDetector = null;
 
 /**
  * 初始化 Native LanguageDetector（如果可用）
+ * Note: Chrome's Translation API is experimental and may not be available
  */
 export async function initLanguageDetector() {
   try {
@@ -15,10 +16,13 @@ export async function initLanguageDetector() {
       languageDetector = await LanguageDetector.create({
         expectedInputLanguages: ['en', 'zh', 'ja', 'ko', 'fr', 'de', 'es']
       });
-      console.log('[Sapling] Native LanguageDetector initialized');
+      console.log('[Sapling] Native LanguageDetector initialized successfully');
+    } else {
+      console.debug('[Sapling] Native LanguageDetector API not available, using regex-based fallback');
     }
   } catch (error) {
-    console.warn('[Sapling] LanguageDetector not available, using fallback:', error);
+    const errorMsg = error?.message || error?.toString() || 'API not supported';
+    console.debug(`[Sapling] LanguageDetector initialization failed (${errorMsg}), using regex-based fallback`);
     languageDetector = null;
   }
 }
@@ -55,7 +59,8 @@ export async function detectLanguage(text) {
         return langCode;
       }
     } catch (error) {
-      console.warn('[Sapling] LanguageDetector error, using fallback:', error);
+      const errorMsg = error?.message || error?.toString() || 'detection failed';
+      console.debug(`[Sapling] LanguageDetector runtime error (${errorMsg}), using regex-based fallback`);
       // 降级到 fallback
     }
   }
