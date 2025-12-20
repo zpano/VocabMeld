@@ -1,5 +1,5 @@
 import { CEFR_LEVELS, INTENSITY_CONFIG, SKIP_TAGS, SKIP_CLASSES } from './config/constants.js';
-import { CACHE_CONFIG, normalizeCacheMaxSize, normalizeConcurrencyLimit } from './core/config.js';
+import { CACHE_CONFIG, DEFAULT_THEME, normalizeCacheMaxSize, normalizeConcurrencyLimit } from './core/config.js';
 import { initLanguageDetector, detectLanguage } from './utils/language-detector.js';
 import { isDifficultyCompatible, isCodeText, isNonLearningWord } from './utils/word-filters.js';
 import { isInAllowedContentEditableRegion } from './utils/dom-utils.js';
@@ -16,6 +16,54 @@ const WORD_CACHE_STORAGE_KEY = 'Sapling_word_cache';
 let wordCache = new Map();
 const tooltipManager = new TooltipManager();
 let processingGeneration = 0;
+
+function normalizeHexColor(value) {
+  if (!value) return null;
+  const trimmed = String(value).trim().toUpperCase();
+  if (!trimmed.startsWith('#')) return null;
+  if (!/^#[0-9A-F]{6}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function hexToRgb(hex) {
+  const normalized = normalizeHexColor(hex);
+  if (!normalized) return null;
+  const r = Number.parseInt(normalized.slice(1, 3), 16);
+  const g = Number.parseInt(normalized.slice(3, 5), 16);
+  const b = Number.parseInt(normalized.slice(5, 7), 16);
+  return { r, g, b };
+}
+
+function applyThemeVariables(theme) {
+  const root = document.documentElement;
+  if (!root) return;
+  const safeTheme = { ...DEFAULT_THEME, ...(theme || {}) };
+  const brand = normalizeHexColor(safeTheme.brand) || DEFAULT_THEME.brand;
+  const background = normalizeHexColor(safeTheme.background) || DEFAULT_THEME.background;
+  const card = normalizeHexColor(safeTheme.card) || DEFAULT_THEME.card;
+  const highlight = normalizeHexColor(safeTheme.highlight) || DEFAULT_THEME.highlight;
+  const underline = normalizeHexColor(safeTheme.underline) || DEFAULT_THEME.underline;
+  const text = normalizeHexColor(safeTheme.text) || DEFAULT_THEME.text;
+
+  const brandRgb = hexToRgb(brand);
+  const highlightRgb = hexToRgb(highlight);
+  const textRgb = hexToRgb(text);
+  const cardRgb = hexToRgb(card);
+  const underlineRgb = hexToRgb(underline);
+
+  root.style.setProperty('--sapling-sprout', brand);
+  root.style.setProperty('--sapling-deep-earth', background);
+  root.style.setProperty('--sapling-card', card);
+  root.style.setProperty('--sapling-highlight', highlight);
+  root.style.setProperty('--sapling-underline', underline);
+  root.style.setProperty('--sapling-mist', text);
+
+  if (brandRgb) root.style.setProperty('--sapling-sprout-rgb', `${brandRgb.r}, ${brandRgb.g}, ${brandRgb.b}`);
+  if (highlightRgb) root.style.setProperty('--sapling-highlight-rgb', `${highlightRgb.r}, ${highlightRgb.g}, ${highlightRgb.b}`);
+  if (textRgb) root.style.setProperty('--sapling-mist-rgb', `${textRgb.r}, ${textRgb.g}, ${textRgb.b}`);
+  if (cardRgb) root.style.setProperty('--sapling-card-rgb', `${cardRgb.r}, ${cardRgb.g}, ${cardRgb.b}`);
+  if (underlineRgb) root.style.setProperty('--sapling-underline-rgb', `${underlineRgb.r}, ${underlineRgb.g}, ${underlineRgb.b}`);
+}
 
 // ============ 配置加载 ============
 async function loadConfig() {
@@ -39,12 +87,14 @@ async function loadConfig() {
         translationStyle: safeResult.translationStyle || 'original-translation',
         cacheMaxSize: normalizeCacheMaxSize(safeResult.cacheMaxSize, CACHE_CONFIG.maxSize),
         concurrencyLimit: normalizeConcurrencyLimit(safeResult.concurrencyLimit),
+        theme: { ...DEFAULT_THEME, ...(safeResult.theme || {}) },
         enabled: safeResult.enabled ?? true,
         blacklist: safeResult.blacklist || [],
         whitelist: safeResult.whitelist || [],
         learnedWords: safeResult.learnedWords || [],
         memorizeList: safeResult.memorizeList || []
       };
+      applyThemeVariables(config.theme);
       tooltipManager.setConfig(config);
       textReplacer.setConfig(config);
       resolve(config);

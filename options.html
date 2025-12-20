@@ -34,6 +34,12 @@
           </svg>
           行为设置
         </a>
+        <a href="#theme" class="nav-item" data-section="theme">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path fill="currentColor" d="M12,3A9,9 0 0,0 3,12C3,16.42 6.58,20 11,20H12C12.55,20 13,20.45 13,21C13,21.55 12.55,22 12,22H11C5.48,22 1,17.52 1,12A11,11 0 0,1 12,1A11,11 0 0,1 23,12C23,15.87 19.87,19 16,19H14.5C13.12,19 12,17.88 12,16.5C12,15.12 13.12,14 14.5,14H16C18.21,14 20,12.21 20,10A8,8 0 0,0 12,3M7.5,10A1.5,1.5 0 0,1 6,8.5A1.5,1.5 0 0,1 7.5,7A1.5,1.5 0 0,1 9,8.5A1.5,1.5 0 0,1 7.5,10M10.5,6.5A1.5,1.5 0 0,1 12,5A1.5,1.5 0 0,1 13.5,6.5A1.5,1.5 0 0,1 12,8A1.5,1.5 0 0,1 10.5,6.5M16.5,10A1.5,1.5 0 0,1 15,8.5A1.5,1.5 0 0,1 16.5,7A1.5,1.5 0 0,1 18,8.5A1.5,1.5 0 0,1 16.5,10M7.5,15A1.5,1.5 0 0,1 6,13.5A1.5,1.5 0 0,1 7.5,12A1.5,1.5 0 0,1 9,13.5A1.5,1.5 0 0,1 7.5,15Z"/>
+          </svg>
+          主题设置
+        </a>
         <a href="#advanced" class="nav-item" data-section="advanced">
           <svg viewBox="0 0 24 24" width="20" height="20">
             <path fill="currentColor" d="M12,8A4,4 0 0,0 8,12A4,4 0 0,0 12,16A4,4 0 0,0 16,12A4,4 0 0,0 12,8M4.93,12.5C4.96,12.33 5,12.17 5,12C5,11.83 4.96,11.67 4.93,11.5L3.22,10.15C3.07,10.03 3.03,9.82 3.12,9.66L4.72,6.89C4.81,6.72 5,6.66 5.17,6.72L7.15,7.5C7.5,7.23 7.88,7 8.3,6.82L8.6,4.71C8.63,4.53 8.79,4.4 9,4.4H15C15.21,4.4 15.37,4.53 15.4,4.71L15.7,6.82C16.12,7 16.5,7.23 16.85,7.5L18.83,6.72C19,6.66 19.19,6.72 19.28,6.89L20.88,9.66C20.97,9.82 20.93,10.03 20.78,10.15L19.07,11.5C19.04,11.67 19,11.83 19,12C19,12.17 19.04,12.33 19.07,12.5L20.78,13.85C20.93,13.97 20.97,14.18 20.88,14.34L19.28,17.11C19.19,17.28 19,17.34 18.83,17.28L16.85,16.5C16.5,16.77 16.12,17 15.7,17.18L15.4,19.29C15.37,19.47 15.21,19.6 15,19.6H9C8.79,19.6 8.63,19.47 8.6,19.29L8.3,17.18C7.88,17 7.5,16.77 7.15,16.5L5.17,17.28C5,17.34 4.81,17.28 4.72,17.11L3.12,14.34C3.03,14.18 3.07,13.97 3.22,13.85L4.93,12.5Z"/>
@@ -289,6 +295,66 @@
         </div>
       </section>
 
+      <!-- 主题设置 -->
+      <section id="theme" class="settings-section">
+        <h2>主题设置</h2>
+        <p class="section-desc">自定义 Sapling 的品牌色与界面配色</p>
+
+        <div class="theme-grid">
+          <div class="theme-card">
+            <label for="themeBrand">主品牌色 (Sprout)</label>
+            <div class="theme-input-row">
+              <input type="color" id="themeBrand" value="#81C784">
+              <input type="text" id="themeBrandText" class="theme-hex-input" value="#81C784" maxlength="7">
+            </div>
+          </div>
+
+          <div class="theme-card">
+            <label for="themeBackground">核心背景色 (Deep Earth)</label>
+            <div class="theme-input-row">
+              <input type="color" id="themeBackground" value="#1B1612">
+              <input type="text" id="themeBackgroundText" class="theme-hex-input" value="#1B1612" maxlength="7">
+            </div>
+          </div>
+
+          <div class="theme-card">
+            <label for="themeCard">容器/卡片背景</label>
+            <div class="theme-input-row">
+              <input type="color" id="themeCard" value="#26201A">
+              <input type="text" id="themeCardText" class="theme-hex-input" value="#26201A" maxlength="7">
+            </div>
+          </div>
+
+          <div class="theme-card">
+            <label for="themeHighlight">替换词强调色</label>
+            <div class="theme-input-row">
+              <input type="color" id="themeHighlight" value="#A5D6A7">
+              <input type="text" id="themeHighlightText" class="theme-hex-input" value="#A5D6A7" maxlength="7">
+            </div>
+          </div>
+
+          <div class="theme-card">
+            <label for="themeUnderline">替换词下划线</label>
+            <div class="theme-input-row">
+              <input type="color" id="themeUnderline" value="#4E342E">
+              <input type="text" id="themeUnderlineText" class="theme-hex-input" value="#4E342E" maxlength="7">
+            </div>
+          </div>
+
+          <div class="theme-card">
+            <label for="themeText">文字主色 (Mist)</label>
+            <div class="theme-input-row">
+              <input type="color" id="themeText" value="#D7CCC8">
+              <input type="text" id="themeTextText" class="theme-hex-input" value="#D7CCC8" maxlength="7">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="themeResetBtn" type="button">恢复默认主题</button>
+        </div>
+      </section>
+
       <!-- 高级设置 -->
       <section id="advanced" class="settings-section">
         <h2>高级设置</h2>
@@ -296,8 +362,8 @@
 
         <div class="form-group">
           <label for="concurrencyLimit">并发限制</label>
-          <p class="help-text">同时处理的段落数量上限（也会影响 API 请求并发）。默认：5</p>
-          <input type="number" id="concurrencyLimit" min="1" max="20" step="1" value="5">
+          <p class="help-text">同时处理的段落数量上限（也会影响 API 请求并发）。默认：3</p>
+          <input type="number" id="concurrencyLimit" min="1" max="20" step="1" value="3">
         </div>
 
       </section>

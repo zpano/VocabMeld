@@ -63,6 +63,15 @@ export const API_PRESETS = {
   }
 };
 
+export const DEFAULT_THEME = {
+  brand: '#81C784',
+  background: '#1B1612',
+  card: '#26201A',
+  highlight: '#A5D6A7',
+  underline: '#4E342E',
+  text: '#D7CCC8'
+};
+
 // 默认配置
 export const DEFAULT_CONFIG = {
   // API 配置
@@ -99,6 +108,9 @@ export const DEFAULT_CONFIG = {
 
   // 高级设置
   concurrencyLimit: 5,
+
+  // 主题配色
+  theme: { ...DEFAULT_THEME },
 
   // 缓存统计
   cacheHits: 0,

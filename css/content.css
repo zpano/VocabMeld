@@ -1,5 +1,28 @@
 /* Sapling Content 样式 - 注入到页面中 */
 
+:root {
+  --sapling-sprout: #81C784;
+  --sapling-deep-earth: #1B1612;
+  --sapling-card: #26201A;
+  --sapling-highlight: #A5D6A7;
+  --sapling-underline: #4E342E;
+  --sapling-mist: #D7CCC8;
+  --sapling-sprout-rgb: 129, 199, 132;
+  --sapling-highlight-rgb: 165, 214, 167;
+  --sapling-underline-rgb: 78, 52, 46;
+  --sapling-mist-rgb: 215, 204, 200;
+  --sapling-card-rgb: 38, 32, 26;
+  --sapling-text-muted: rgba(var(--sapling-mist-rgb), 0.72);
+  --sapling-text-dim: rgba(var(--sapling-mist-rgb), 0.55);
+  --sapling-border: rgba(var(--sapling-underline-rgb), 0.7);
+  --sapling-border-strong: rgba(var(--sapling-underline-rgb), 0.85);
+  --sapling-sprout-soft: rgba(var(--sapling-sprout-rgb), 0.18);
+  --sapling-sprout-softer: rgba(var(--sapling-sprout-rgb), 0.12);
+  --sapling-action-bg: rgba(var(--sapling-underline-rgb), 0.45);
+  --sapling-action-hover: rgba(var(--sapling-underline-rgb), 0.65);
+  --sapling-tooltip-shadow: 0 10px 40px rgba(0, 0, 0, 0.35), 0 0 1px rgba(var(--sapling-mist-rgb), 0.08);
+}
+
 /* 动画定义 */
 @keyframes Sapling-tooltip-in {
   from {
@@ -14,28 +37,13 @@
 
 /* 悬停效果 */
 .Sapling-translated:hover {
-  background: rgba(99, 102, 241, 0.15) !important;
+  background: var(--sapling-sprout-soft) !important;
 }
 
 /* 正在处理中的段落高亮 */
 .Sapling-processing {
-  background: rgba(52, 211, 153, 0.12) !important;
+  background: var(--sapling-sprout-softer) !important;
   transition: background 0.3s ease !important;
-}
-
-/* 暗色主题适配 */
-@media (prefers-color-scheme: dark) {
-  .Sapling-translated .Sapling-word {
-    color: #818cf8 !important;
-  }
-  
-  .Sapling-translated .Sapling-original {
-    color: #94a3b8 !important;
-  }
-  
-  .Sapling-translated:hover {
-    background: rgba(129, 140, 248, 0.2) !important;
-  }
 }
 
 /* Toast 显示状态 */
@@ -64,10 +72,11 @@
 }
 
 .Sapling-translated .Sapling-word {
-  color: #6366f1 !important;
+  color: var(--sapling-highlight) !important;
   font-weight: 500 !important;
   text-decoration: underline !important;
   text-decoration-style: dotted !important;
+  text-decoration-color: var(--sapling-underline) !important;
   text-underline-offset: 2px !important;
 }
 
@@ -84,23 +93,23 @@
 
 /* translation-original 模式下，原文弱化显示 */
 .Sapling-translated[data-style="translation-original"] .Sapling-original {
-  color: #64748b !important;
+  color: var(--sapling-text-dim) !important;
   font-size: 0.85em !important;
 }
 
 .Sapling-tooltip {
   position: absolute !important;
   z-index: 2147483647 !important;
-  background: #1e293b !important;
-  color: #f8fafc !important;
+  background: var(--sapling-card) !important;
+  color: var(--sapling-mist) !important;
   border-radius: 10px !important;
   padding: 12px 16px !important;
   font-size: 14px !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3), 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  box-shadow: var(--sapling-tooltip-shadow) !important;
   max-width: 300px !important;
   min-width: 180px !important;
-  border: 1px solid #334155 !important;
+  border: 1px solid var(--sapling-border) !important;
   box-sizing: border-box !important;
   line-height: 1.5 !important;
   text-align: left !important;
@@ -118,7 +127,7 @@
 .Sapling-tooltip .Sapling-tooltip-word {
   font-size: 18px !important;
   font-weight: 600 !important;
-  color: #818cf8 !important;
+  color: var(--sapling-highlight) !important;
   margin: 0 !important;
   padding: 0 !important;
 }
@@ -126,13 +135,13 @@
 .Sapling-tooltip .Sapling-tooltip-translation {
   font-size: 13px !important;
   font-weight: 500 !important;
-  color: #cbd5e1 !important;
+  color: var(--sapling-text-muted) !important;
 }
 
 .Sapling-tooltip .Sapling-tooltip-badge {
   display: inline-block !important;
   padding: 2px 8px !important;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  background: linear-gradient(135deg, var(--sapling-sprout), var(--sapling-highlight)) !important;
   color: white !important;
   font-size: 11px !important;
   font-weight: 600 !important;
@@ -141,7 +150,7 @@
 }
 
 .Sapling-tooltip .Sapling-tooltip-phonetic {
-  color: #94a3b8 !important;
+  color: var(--sapling-text-muted) !important;
   font-size: 13px !important;
   margin-bottom: 6px !important;
   font-style: italic !important;
@@ -149,7 +158,7 @@
 }
 
 .Sapling-tooltip .Sapling-tooltip-original {
-  color: #64748b !important;
+  color: var(--sapling-text-dim) !important;
   font-size: 13px !important;
   margin-bottom: 8px !important;
   padding: 0 !important;
@@ -162,20 +171,20 @@
 
 .Sapling-tooltip .Sapling-tooltip-definition {
   font-size: 13px !important;
-  color: #e2e8f0 !important;
+  color: var(--sapling-mist) !important;
   margin: 2px 0 !important;
 }
 
 .Sapling-tooltip .Sapling-tooltip-pos {
   text-transform: uppercase !important;
   font-size: 11px !important;
-  color: #a5b4fc !important;
+  color: var(--sapling-sprout) !important;
   margin-right: 6px !important;
 }
 
 .Sapling-tooltip .Sapling-tooltip-example {
   font-size: 12px !important;
-  color: #94a3b8 !important;
+  color: var(--sapling-text-muted) !important;
   margin-top: 2px !important;
 }
 
@@ -185,7 +194,7 @@
 
 .Sapling-tooltip .Sapling-tooltip-dict-loading {
   font-size: 12px !important;
-  color: #64748b !important;
+  color: var(--sapling-text-dim) !important;
 }
 
 /* Tooltip 按钮区域 */
@@ -194,7 +203,7 @@
   gap: 8px !important;
   padding-top: 10px !important;
   margin-top: 8px !important;
-  border-top: 1px solid #334155 !important;
+  border-top: 1px solid var(--sapling-border) !important;
 }
 
 .Sapling-tooltip .Sapling-action-btn {
@@ -204,10 +213,10 @@
   justify-content: center !important;
   gap: 4px !important;
   padding: 6px 8px !important;
-  background: #334155 !important;
+  background: var(--sapling-action-bg) !important;
   border: none !important;
   border-radius: 6px !important;
-  color: #e2e8f0 !important;
+  color: var(--sapling-mist) !important;
   font-size: 12px !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   cursor: pointer !important;
@@ -216,7 +225,7 @@
 }
 
 .Sapling-tooltip .Sapling-action-btn:hover {
-  background: #475569 !important;
+  background: var(--sapling-action-hover) !important;
   transform: translateY(-1px) !important;
 }
 
@@ -230,33 +239,33 @@
 
 /* 发音按钮 */
 .Sapling-tooltip .Sapling-btn-speak:hover {
-  background: #3b82f6 !important;
-  color: white !important;
+  background: var(--sapling-sprout) !important;
+  color: var(--sapling-deep-earth) !important;
 }
 
 /* 记忆按钮 */
 .Sapling-tooltip .Sapling-btn-memorize:hover {
-  background: #f59e0b !important;
-  color: white !important;
+  background: var(--sapling-highlight) !important;
+  color: var(--sapling-deep-earth) !important;
 }
 
 /* 已学会按钮 */
 .Sapling-tooltip .Sapling-btn-learned:hover {
-  background: #10b981 !important;
-  color: white !important;
+  background: var(--sapling-underline) !important;
+  color: var(--sapling-mist) !important;
 }
 
 .Sapling-toast {
   position: fixed !important;
   z-index: 2147483647 !important;
-  background: #1e293b !important;
-  color: #f8fafc !important;
+  background: var(--sapling-card) !important;
+  color: var(--sapling-mist) !important;
   padding: 12px 24px !important;
   border-radius: 8px !important;
   font-size: 14px !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
-  border: 1px solid #334155 !important;
+  box-shadow: var(--sapling-tooltip-shadow) !important;
+  border: 1px solid var(--sapling-border) !important;
 }
 
 /* 打印时隐藏 */
@@ -280,7 +289,7 @@
 .Sapling-tooltip .Sapling-tooltip-examples {
   margin-top: 8px !important;
   padding-top: 8px !important;
-  border-top: 1px solid #334155 !important;
+  border-top: 1px solid var(--sapling-border) !important;
 }
 
 /* AI 例句标签 */
@@ -288,7 +297,7 @@
   display: inline-block !important;
   padding: 1px 4px !important;
   margin-right: 6px !important;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  background: linear-gradient(135deg, var(--sapling-sprout), var(--sapling-highlight)) !important;
   color: white !important;
   font-size: 9px !important;
   font-weight: 600 !important;

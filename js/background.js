@@ -3,7 +3,7 @@
  * 处理扩展级别的事件和消息
  */
 
-import { CACHE_CONFIG, normalizeCacheMaxSize } from './core/config.js';
+import { CACHE_CONFIG, DEFAULT_THEME, normalizeCacheMaxSize } from './core/config.js';
 
 async function ensureOffscreenDocument() {
   if (!chrome.offscreen?.createDocument) return false;
@@ -68,6 +68,7 @@ chrome.runtime.onInstalled.addListener((details) => {
       learnedWords: [],
       memorizeList: [],
       cacheMaxSize: CACHE_CONFIG.maxSize,
+      theme: { ...DEFAULT_THEME },
       totalWords: 0,
       todayWords: 0,
       lastResetDate: new Date().toISOString().split('T')[0],

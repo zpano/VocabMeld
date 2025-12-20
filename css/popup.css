@@ -1,20 +1,39 @@
 /* Sapling Popup 样式 */
 
 :root {
-  --primary: #6366f1;
-  --primary-dark: #4f46e5;
-  --primary-light: #818cf8;
-  --secondary: #64748b;
+  --sapling-sprout: #81C784;
+  --sapling-deep-earth: #1B1612;
+  --sapling-card: #26201A;
+  --sapling-highlight: #A5D6A7;
+  --sapling-underline: #4E342E;
+  --sapling-mist: #D7CCC8;
+  --sapling-sprout-rgb: 129, 199, 132;
+  --sapling-highlight-rgb: 165, 214, 167;
+  --sapling-mist-rgb: 215, 204, 200;
+  --sapling-card-rgb: 38, 32, 26;
+  --sapling-underline-rgb: 78, 52, 46;
+  --primary: var(--sapling-sprout);
+  --primary-dark: #71AF74;
+  --primary-light: var(--sapling-highlight);
+  --secondary: rgba(var(--sapling-mist-rgb), 0.6);
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --border: #334155;
+  --bg-primary: var(--sapling-deep-earth);
+  --bg-secondary: var(--sapling-card);
+  --bg-tertiary: #322922;
+  --text-primary: var(--sapling-mist);
+  --text-secondary: rgba(var(--sapling-mist-rgb), 0.72);
+  --text-muted: rgba(var(--sapling-mist-rgb), 0.55);
+  --border: rgba(var(--sapling-underline-rgb), 0.7);
+  --border-light: rgba(var(--sapling-underline-rgb), 0.85);
+  --primary-tint: rgba(var(--sapling-sprout-rgb), 0.18);
+  --primary-tint-strong: rgba(var(--sapling-highlight-rgb), 0.12);
+  --primary-border: rgba(var(--sapling-sprout-rgb), 0.32);
+  --primary-focus: rgba(var(--sapling-sprout-rgb), 0.24);
+  --primary-shadow: rgba(var(--sapling-sprout-rgb), 0.32);
+  --primary-shadow-strong: rgba(var(--sapling-sprout-rgb), 0.45);
+  --surface-elevated: rgba(var(--sapling-card-rgb), 0.95);
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
   --radius: 12px;
   --radius-sm: 8px;
@@ -189,7 +208,7 @@ input:checked + .toggle-slider:before {
 .stat-total .stat-value { color: var(--primary-light); }
 .stat-today .stat-value { color: var(--success); }
 .stat-learned .stat-value { color: var(--warning); }
-.stat-memorize .stat-value { color: #f472b6; }
+.stat-memorize .stat-value { color: var(--primary); }
 
 .stat-label {
   font-size: 11px;
@@ -251,12 +270,12 @@ input:checked + .toggle-slider:before {
 .btn-primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 8px var(--primary-shadow);
 }
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 4px 12px var(--primary-shadow-strong);
 }
 
 .btn-primary:disabled {

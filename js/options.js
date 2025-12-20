@@ -19,6 +19,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const CACHE_MIN_SIZE_LIMIT = 2048;
   const DEFAULT_CONCURRENCY_LIMIT = 5;
   const CONCURRENCY_LIMIT_MAX = 20;
+  const DEFAULT_THEME = {
+    brand: '#81C784',
+    background: '#1B1612',
+    card: '#26201A',
+    highlight: '#A5D6A7',
+    underline: '#4E342E',
+    text: '#D7CCC8'
+  };
 
   function normalizeCacheMaxSize(value) {
     const parsed = Number.parseInt(String(value), 10);
@@ -36,6 +44,110 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function normalizeConcurrencyLimit(value) {
     return normalizePositiveInt(value, DEFAULT_CONCURRENCY_LIMIT, { min: 1, max: CONCURRENCY_LIMIT_MAX });
+  }
+
+  function normalizeHexColor(value) {
+    if (!value) return null;
+    const trimmed = String(value).trim().toUpperCase();
+    if (!trimmed.startsWith('#')) return null;
+    if (!/^#[0-9A-F]{6}$/.test(trimmed)) return null;
+    return trimmed;
+  }
+
+  function hexToRgb(hex) {
+    const normalized = normalizeHexColor(hex);
+    if (!normalized) return null;
+    const r = Number.parseInt(normalized.slice(1, 3), 16);
+    const g = Number.parseInt(normalized.slice(3, 5), 16);
+    const b = Number.parseInt(normalized.slice(5, 7), 16);
+    return { r, g, b };
+  }
+
+  function rgbToHex({ r, g, b }) {
+    const toHex = (value) => value.toString(16).padStart(2, '0').toUpperCase();
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
+  function shadeHex(hex, percent) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return hex;
+    const adjust = (channel) => {
+      const delta = percent < 0
+        ? channel * (percent / 100)
+        : (255 - channel) * (percent / 100);
+      return Math.min(255, Math.max(0, Math.round(channel + delta)));
+    };
+    return rgbToHex({
+      r: adjust(rgb.r),
+      g: adjust(rgb.g),
+      b: adjust(rgb.b)
+    });
+  }
+
+  function applyThemeVariables(theme) {
+    const root = document.documentElement;
+    if (!root) return;
+    const safeTheme = { ...DEFAULT_THEME, ...(theme || {}) };
+    const brand = normalizeHexColor(safeTheme.brand) || DEFAULT_THEME.brand;
+    const background = normalizeHexColor(safeTheme.background) || DEFAULT_THEME.background;
+    const card = normalizeHexColor(safeTheme.card) || DEFAULT_THEME.card;
+    const highlight = normalizeHexColor(safeTheme.highlight) || DEFAULT_THEME.highlight;
+    const underline = normalizeHexColor(safeTheme.underline) || DEFAULT_THEME.underline;
+    const text = normalizeHexColor(safeTheme.text) || DEFAULT_THEME.text;
+
+    const brandRgb = hexToRgb(brand);
+    const highlightRgb = hexToRgb(highlight);
+    const textRgb = hexToRgb(text);
+    const cardRgb = hexToRgb(card);
+    const underlineRgb = hexToRgb(underline);
+
+    root.style.setProperty('--sapling-sprout', brand);
+    root.style.setProperty('--sapling-deep-earth', background);
+    root.style.setProperty('--sapling-card', card);
+    root.style.setProperty('--sapling-highlight', highlight);
+    root.style.setProperty('--sapling-underline', underline);
+    root.style.setProperty('--sapling-mist', text);
+
+    if (brandRgb) root.style.setProperty('--sapling-sprout-rgb', `${brandRgb.r}, ${brandRgb.g}, ${brandRgb.b}`);
+    if (highlightRgb) root.style.setProperty('--sapling-highlight-rgb', `${highlightRgb.r}, ${highlightRgb.g}, ${highlightRgb.b}`);
+    if (textRgb) root.style.setProperty('--sapling-mist-rgb', `${textRgb.r}, ${textRgb.g}, ${textRgb.b}`);
+    if (cardRgb) root.style.setProperty('--sapling-card-rgb', `${cardRgb.r}, ${cardRgb.g}, ${cardRgb.b}`);
+    if (underlineRgb) root.style.setProperty('--sapling-underline-rgb', `${underlineRgb.r}, ${underlineRgb.g}, ${underlineRgb.b}`);
+
+    if (brandRgb) {
+      root.style.setProperty('--primary', brand);
+      root.style.setProperty('--primary-light', highlight);
+      root.style.setProperty('--primary-dark', shadeHex(brand, -12));
+      root.style.setProperty('--primary-tint', `rgba(${brandRgb.r}, ${brandRgb.g}, ${brandRgb.b}, 0.18)`);
+      root.style.setProperty('--primary-border', `rgba(${brandRgb.r}, ${brandRgb.g}, ${brandRgb.b}, 0.32)`);
+      root.style.setProperty('--primary-focus', `rgba(${brandRgb.r}, ${brandRgb.g}, ${brandRgb.b}, 0.24)`);
+      root.style.setProperty('--primary-shadow', `rgba(${brandRgb.r}, ${brandRgb.g}, ${brandRgb.b}, 0.32)`);
+      root.style.setProperty('--primary-shadow-strong', `rgba(${brandRgb.r}, ${brandRgb.g}, ${brandRgb.b}, 0.45)`);
+    }
+
+    if (highlightRgb) {
+      root.style.setProperty('--primary-tint-strong', `rgba(${highlightRgb.r}, ${highlightRgb.g}, ${highlightRgb.b}, 0.12)`);
+    }
+
+    if (textRgb) {
+      root.style.setProperty('--text-primary', text);
+      root.style.setProperty('--text-secondary', `rgba(${textRgb.r}, ${textRgb.g}, ${textRgb.b}, 0.72)`);
+      root.style.setProperty('--text-muted', `rgba(${textRgb.r}, ${textRgb.g}, ${textRgb.b}, 0.55)`);
+    }
+
+    if (underlineRgb) {
+      root.style.setProperty('--border', `rgba(${underlineRgb.r}, ${underlineRgb.g}, ${underlineRgb.b}, 0.7)`);
+      root.style.setProperty('--border-light', `rgba(${underlineRgb.r}, ${underlineRgb.g}, ${underlineRgb.b}, 0.85)`);
+    }
+
+    root.style.setProperty('--bg-primary', background);
+    root.style.setProperty('--bg-secondary', card);
+    root.style.setProperty('--bg-tertiary', shadeHex(card, 8));
+    root.style.setProperty('--bg-card', card);
+
+    if (cardRgb) {
+      root.style.setProperty('--surface-elevated', `rgba(${cardRgb.r}, ${cardRgb.g}, ${cardRgb.b}, 0.95)`);
+    }
   }
 
   // 防抖保存函数
@@ -76,6 +188,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     youdaoPronunciationType: document.getElementById('youdaoPronunciationType'),
     youdaoPronunciationSettings: document.getElementById('youdaoPronunciationSettings'),
     translationStyleRadios: document.querySelectorAll('input[name="translationStyle"]'),
+
+    // 主题设置
+    themeBrand: document.getElementById('themeBrand'),
+    themeBrandText: document.getElementById('themeBrandText'),
+    themeBackground: document.getElementById('themeBackground'),
+    themeBackgroundText: document.getElementById('themeBackgroundText'),
+    themeCard: document.getElementById('themeCard'),
+    themeCardText: document.getElementById('themeCardText'),
+    themeHighlight: document.getElementById('themeHighlight'),
+    themeHighlightText: document.getElementById('themeHighlightText'),
+    themeUnderline: document.getElementById('themeUnderline'),
+    themeUnderlineText: document.getElementById('themeUnderlineText'),
+    themeText: document.getElementById('themeText'),
+    themeTextText: document.getElementById('themeTextText'),
+    themeResetBtn: document.getElementById('themeResetBtn'),
 
     // 高级设置
     concurrencyLimit: document.getElementById('concurrencyLimit'),
@@ -194,6 +321,69 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function getThemePairs() {
+    return [
+      { key: 'brand', color: elements.themeBrand, text: elements.themeBrandText },
+      { key: 'background', color: elements.themeBackground, text: elements.themeBackgroundText },
+      { key: 'card', color: elements.themeCard, text: elements.themeCardText },
+      { key: 'highlight', color: elements.themeHighlight, text: elements.themeHighlightText },
+      { key: 'underline', color: elements.themeUnderline, text: elements.themeUnderlineText },
+      { key: 'text', color: elements.themeText, text: elements.themeTextText }
+    ];
+  }
+
+  function getThemeFromUI() {
+    const theme = { ...DEFAULT_THEME };
+    getThemePairs().forEach(({ key, color, text }) => {
+      const value = normalizeHexColor(text?.value || color?.value);
+      theme[key] = value || DEFAULT_THEME[key];
+    });
+    return theme;
+  }
+
+  function setThemeInputs(theme) {
+    const safeTheme = { ...DEFAULT_THEME, ...(theme || {}) };
+    getThemePairs().forEach(({ key, color, text }) => {
+      const value = normalizeHexColor(safeTheme[key]) || DEFAULT_THEME[key];
+      if (color) color.value = value;
+      if (text) text.value = value;
+    });
+  }
+
+  function syncThemePair({ key, color, text }) {
+    if (!color || !text) return;
+
+    const syncValue = (value, { save = true } = {}) => {
+      const normalized = normalizeHexColor(value);
+      if (!normalized) return false;
+      color.value = normalized;
+      text.value = normalized;
+      applyThemeVariables(getThemeFromUI());
+      if (save) debouncedSave(200);
+      return true;
+    };
+
+    color.addEventListener('input', () => {
+      syncValue(color.value);
+    });
+
+    text.addEventListener('input', () => {
+      syncValue(text.value, { save: false });
+    });
+
+    text.addEventListener('change', () => {
+      if (!syncValue(text.value)) {
+        syncValue(DEFAULT_THEME[key]);
+      }
+    });
+
+    text.addEventListener('blur', () => {
+      if (!syncValue(text.value)) {
+        syncValue(DEFAULT_THEME[key]);
+      }
+    });
+  }
+
   // 加载配置
   async function loadSettings() {
     chrome.storage.sync.get(null, (result) => {
@@ -228,6 +418,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       elements.translationStyleRadios.forEach(radio => {
         radio.checked = radio.value === translationStyle;
       });
+
+      // 主题设置
+      const theme = { ...DEFAULT_THEME, ...(result.theme || {}) };
+      setThemeInputs(theme);
+      applyThemeVariables(theme);
       
       // 站点规则
       elements.blacklistInput.value = (result.blacklist || []).join('\n');
@@ -503,6 +698,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       pronunciationProvider: elements.pronunciationProvider.value,
       youdaoPronunciationType: Number.parseInt(elements.youdaoPronunciationType.value, 10) === 1 ? 1 : 2,
       translationStyle: document.querySelector('input[name="translationStyle"]:checked')?.value || 'original-translation',
+      theme: getThemeFromUI(),
       blacklist: elements.blacklistInput.value.split('\n').filter(s => s.trim()),
       whitelist: elements.whitelistInput.value.split('\n').filter(s => s.trim()),
       cacheMaxSize: normalizedCacheMaxSize,
@@ -671,6 +867,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         debouncedSave(200);
       });
     }
+
+    getThemePairs().forEach(syncThemePair);
   }
 
   // 更新难度标签
@@ -745,6 +943,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
     });
+
+    if (elements.themeResetBtn) {
+      elements.themeResetBtn.addEventListener('click', () => {
+        setThemeInputs(DEFAULT_THEME);
+        applyThemeVariables(DEFAULT_THEME);
+        debouncedSave(200);
+      });
+    }
 
     // 难度滑块
     elements.difficultyLevel.addEventListener('input', updateDifficultyLabel);
