@@ -78,7 +78,7 @@ async function loadConfig() {
         learnedWords: safeResult.learnedWords || [],
         memorizeList: safeResult.memorizeList || []
       };
-      applyThemeVariables(config.theme, DEFAULT_THEME);
+      applyThemeVariables(config.theme, DEFAULT_THEME, true); // contentScriptMode = true，避免污染网页
       tooltipManager.setConfig(config);
       textReplacer.setConfig(config);
       resolve(config);

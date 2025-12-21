@@ -66,8 +66,9 @@ export function shadeHex(hex, percent) {
  * 应用主题变量到DOM根元素
  * @param {object} theme - 主题配置对象
  * @param {object} DEFAULT_THEME - 默认主题配置
+ * @param {boolean} contentScriptMode - 内容脚本模式：true 时只设置 --sapling-* 变量，避免污染网页；false 时设置所有变量（用于 options/popup 页面）
  */
-export function applyThemeVariables(theme, DEFAULT_THEME) {
+export function applyThemeVariables(theme, DEFAULT_THEME, contentScriptMode = false) {
   const root = document.documentElement;
   if (!root) return;
 
@@ -85,7 +86,7 @@ export function applyThemeVariables(theme, DEFAULT_THEME) {
   const cardRgb = hexToRgb(card);
   const underlineRgb = hexToRgb(underline);
 
-  // 设置基础 Sapling 变量
+  // 设置基础 Sapling 变量（始终设置，不会与网页冲突）
   root.style.setProperty('--sapling-sprout', brand);
   root.style.setProperty('--sapling-deep-earth', background);
   root.style.setProperty('--sapling-card', card);
@@ -99,6 +100,13 @@ export function applyThemeVariables(theme, DEFAULT_THEME) {
   if (textRgb) root.style.setProperty('--sapling-mist-rgb', `${textRgb.r}, ${textRgb.g}, ${textRgb.b}`);
   if (cardRgb) root.style.setProperty('--sapling-card-rgb', `${cardRgb.r}, ${cardRgb.g}, ${cardRgb.b}`);
   if (underlineRgb) root.style.setProperty('--sapling-underline-rgb', `${underlineRgb.r}, ${underlineRgb.g}, ${underlineRgb.b}`);
+
+  // 仅在非内容脚本模式下设置通用变量（避免污染网页）
+  if (contentScriptMode) {
+    return; // 内容脚本模式：只设置 --sapling-* 变量，避免与网站 CSS 变量冲突
+  }
+
+  // 以下变量仅用于 options.html 和 popup.html，不应在内容脚本中设置
 
   // 设置派生的品牌色变量（用于选项页等）
   if (brandRgb) {
