@@ -1,0 +1,85 @@
+name: Official Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          # Remove 'v' prefix from tag (e.g., v1.0.0 -> 1.0.0)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+
+      - name: Create release package
+        run: |
+          mkdir -p release
+          zip -r release/Sapling-${{ steps.version.outputs.version }}.zip \
+            manifest.json \
+            icons/ \
+            css/ \
+            js/ \
+            dist/ \
+            vendor/ \
+            _locales/ \
+            popup.html \
+            options.html \
+            offscreen.html \
+            -x "*.map" \
+            -x "node_modules/*" \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "scripts/*"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Sapling v${{ steps.version.outputs.version }}
+          body: |
+            ## Sapling v${{ steps.version.outputs.version }}
+
+            **发布时间:** ${{ steps.version.outputs.timestamp }}
+
+            ### 安装方法
+            1. 下载 `Sapling-${{ steps.version.outputs.version }}.zip`
+            2. 解压文件
+            3. 打开 Chrome 浏览器，访问 `chrome://extensions/`
+            4. 开启"开发者模式"
+            5. 点击"加载已解压的扩展程序"
+            6. 选择解压后的文件夹
+
+            ### 更新日志
+            请查看下方的 commits 历史了解详细变更。
+
+            ---
+
+            **完整功能说明**: https://github.com/zpano/Sapling#readme
+          files: release/*.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

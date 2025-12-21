@@ -443,3 +443,38 @@ function isDifficultyCompatible(wordDifficulty, userDifficulty) {
 ### 本地开发
 1. 修改 `options.html/js/options.js`、`popup.html/js/popup.js`、`js/background.js` 等：在 `chrome://extensions/` 点击刷新即可
 2. 修改内容脚本相关代码（`js/content.js` 及其依赖模块）：先运行 `npm run build`（或 `npm run watch`），再到 `chrome://extensions/` 刷新扩展
+
+### 发布流程
+
+项目使用 GitHub Actions 自动构建和发布，支持两种发布模式：
+
+#### 1. 开发版本（自动发布）
+- **触发条件**: 每次 push 到 `main` 分支
+- **文件名格式**: `Sapling-1.0.0-abc1234.zip`（版本号 + commit hash）
+- **Release 标签**: `v1.0.0-abc1234`
+- **状态**: Pre-release（开发预览版）
+- **用途**: 用于测试和预览最新功能
+
+#### 2. 正式版本（手动发布）
+- **触发条件**: 推送 tag（格式 `v*.*.*`）
+- **文件名格式**: `Sapling-1.0.0.zip`（仅版本号）
+- **Release 标签**: `v1.0.0`
+- **状态**: Release（正式版）
+- **用途**: 稳定版本，推荐用户使用
+
+**发布正式版本步骤**：
+```bash
+# 1. 确保 package.json 中的版本号已更新
+# 2. 提交所有更改
+git add .
+git commit -m "chore: bump version to 1.0.1"
+
+# 3. 创建并推送 tag
+git tag v1.0.1
+git push origin main
+git push origin v1.0.1
+
+# 4. GitHub Actions 会自动构建并创建正式 Release
+```
+
+**注意**: Tag 版本号应与 `package.json` 中的版本号一致。
