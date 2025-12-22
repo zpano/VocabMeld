@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sapling Repro Page</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; line-height: 1.6; }
+      .hint { color: #666; font-size: 14px; margin-bottom: 16px; }
+      .box { padding: 16px; border: 1px solid #ddd; border-radius: 10px; background: #fafafa; }
+      code { background: #f1f1f1; padding: 0 6px; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <h2>Sapling 复现页</h2>
+    <div class="hint">
+      目标：页面里包含 <code>game</code>（短、低等级）和 <code>affiliated</code>（长、较高等级），用于验证“难度过滤 + 短词过滤 + mock API”是否生效。
+    </div>
+
+    <div class="box">
+      <p>
+        We played a game after dinner. The game was fun and the game ended quickly.
+      </p>
+      <p>
+        The hospital is affiliated with the university medical school, and the affiliated partners cooperate closely.
+      </p>
+    </div>
+  </body>
+</html>
+
+

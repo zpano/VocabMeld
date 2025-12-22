@@ -7,7 +7,7 @@ import { INTENSITY_CONFIG, isDifficultyCompatible, CACHE_CONFIG, normalizeCacheM
 import { cacheService } from './cache-service.js';
 import { buildVocabularySelectionPrompt, buildSpecificWordsPrompt } from '../prompts/ai-prompts.js';
 import { detectLanguage } from '../utils/language-detector.js';
-import { isNonLearningWord } from '../utils/word-filters.js';
+import { isNonLearningWord, normalizeCefrLevel } from '../utils/word-filters.js';
 import { segmentText, reconstructTextWithWords, filterWords } from '../utils/text-processor.js';
 
 /**
@@ -207,7 +207,19 @@ class ApiService {
 
     // 过滤缓存结果（按难度）
     const filteredCached = cached
-      .filter(c => isDifficultyCompatible(c.difficulty || 'B1', config.difficultyLevel))
+      .filter(c => {
+        const word = c.word || '';
+        if (isNonLearningWord(word)) return false;
+
+        const isChinese = /[\u4e00-\u9fff]/.test(word);
+        if (isChinese && word.length < 2) return false;
+
+        const isEnglish = /^[a-zA-Z]+$/.test(word);
+        if (isEnglish && word.length < 5) return false;
+
+        const difficulty = normalizeCefrLevel(c.difficulty) || 'A1';
+        return isDifficultyCompatible(difficulty, config.difficultyLevel);
+      })
       .map(c => {
         const idx = text.toLowerCase().indexOf(c.word.toLowerCase());
         return {
@@ -270,10 +282,50 @@ class ApiService {
           learningLanguage: config.targetLanguage,
           aiTargetCount,
           aiMaxCount,
-          userDifficultyLevel: config.difficultyLevel || 'B1'
+          userDifficultyLevel: config.difficultyLevel
         });
 
         const userPrompt = `${filteredText}`;
+
+        // Debug: 允许跳过网络请求，直接返回指定词汇（用于复现/排查）
+        if (config?.debugMockApi) {
+          const mock = Array.isArray(config.debugMockApiResults) ? config.debugMockApiResults : [
+            // 低等级短词：用于验证过滤是否生效（B1 时应被过滤）
+            { original: 'game', translation: '游戏', phonetic: '/ɡeɪm/', difficulty: 'A2', partOfSpeech: 'noun', shortDefinition: 'an activity or sport played for fun', example: 'We played a game after dinner.' },
+            // 正常词：用于验证仍有替换输出
+            { original: 'affiliated', translation: '隶属的', phonetic: '/əˈfɪlieɪtɪd/', difficulty: 'B2', partOfSpeech: 'adjective', shortDefinition: 'officially connected or associated', example: 'The hospital is affiliated with the university.' }
+          ];
+
+          // 走与真实 API 一致的过滤逻辑
+          let allResults = mock;
+          const filteredResults = allResults.filter(item => {
+            const word = item.original || '';
+            if (isNonLearningWord(word)) return false;
+
+            const isChinese = /[\u4e00-\u9fff]/.test(word);
+            if (isChinese && word.length < 2) return false;
+
+            const isEnglish = /^[a-zA-Z]+$/.test(word);
+            if (isEnglish && word.length < 5) return false;
+
+            const difficulty = normalizeCefrLevel(item.difficulty) || 'A1';
+            if (!isDifficultyCompatible(difficulty, config.difficultyLevel)) return false;
+
+            return true;
+          });
+
+          const correctedResults = filteredResults.map(result => {
+            const originalIndex = text.toLowerCase().indexOf(result.original.toLowerCase());
+            return {
+              ...result,
+              position: originalIndex >= 0 ? originalIndex : (result.position || 0),
+              sourceLang
+            };
+          });
+
+          updateStatsCallback({ newWords: correctedResults.length, cacheHits: cached.length, cacheMisses: 1 });
+          return correctedResults.slice(0, maxAsyncReplacements);
+        }
 
         let response;
         try {
@@ -380,7 +432,7 @@ class ApiService {
           cacheMap.set(key, {
             translation: item.translation,
             phonetic: item.phonetic || '',
-            difficulty: item.difficulty || 'B1',
+          difficulty: normalizeCefrLevel(item.difficulty) || 'A1',
             partOfSpeech: item.partOfSpeech || '',
             shortDefinition: item.shortDefinition || '',
             example: item.example || ''
@@ -398,7 +450,8 @@ class ApiService {
         const filteredResults = allResults.filter(item => {
           const word = item.original || '';
           if (isNonLearningWord(word)) return false;
-          if (!isDifficultyCompatible(item.difficulty || 'B1', config.difficultyLevel)) return false;
+          const difficulty = normalizeCefrLevel(item.difficulty) || 'A1';
+          if (!isDifficultyCompatible(difficulty, config.difficultyLevel)) return false;
 
           const isEnglish = /^[a-zA-Z]+$/.test(word);
           if (isEnglish && word.length < 5) return false;
@@ -425,8 +478,16 @@ class ApiService {
           .filter(c =>
             !immediateWords.has(c.word.toLowerCase()) &&
             !correctedResults.some(r => r.original.toLowerCase() === c.word.toLowerCase()) &&
-            isDifficultyCompatible(c.difficulty || 'B1', config.difficultyLevel) &&
-            !isNonLearningWord(c.word)
+            !isNonLearningWord(c.word) &&
+            (() => {
+              const w = c.word || '';
+              const isChinese = /[\u4e00-\u9fff]/.test(w);
+              if (isChinese && w.length < 2) return false;
+              const isEnglish = /^[a-zA-Z]+$/.test(w);
+              if (isEnglish && w.length < 5) return false;
+              const difficulty = normalizeCefrLevel(c.difficulty) || 'A1';
+              return isDifficultyCompatible(difficulty, config.difficultyLevel);
+            })()
           )
           .map(c => {
             const idx = text.toLowerCase().indexOf(c.word.toLowerCase());
@@ -641,7 +702,7 @@ class ApiService {
           cacheMap.set(key, {
             translation: item.translation,
             phonetic: item.phonetic || '',
-            difficulty: item.difficulty || 'B1',
+            difficulty: normalizeCefrLevel(item.difficulty) || 'A1',
             partOfSpeech: item.partOfSpeech || '',
             shortDefinition: item.shortDefinition || '',
             example: item.example || ''

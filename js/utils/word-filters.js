@@ -6,18 +6,36 @@
 import { CEFR_LEVELS } from '../config/constants.js';
 
 /**
+ * 规范化 CEFR 等级字符串为标准形式（A1/A2/B1/B2/C1/C2）
+ * 允许输入带额外字符，例如 "B2+", "Level: B1", "b1" 等
+ * @param {string} level
+ * @returns {string|null}
+ */
+export function normalizeCefrLevel(level) {
+  if (!level) return null;
+  const upper = String(level).trim().toUpperCase();
+  const match = upper.match(/\b(A1|A2|B1|B2|C1|C2)\b/);
+  return match ? match[1] : null;
+}
+
+/**
  * 检查单词难度是否兼容用户设置
  * @param {string} wordDifficulty - 单词难度 (A1-C2)
  * @param {string} userDifficulty - 用户难度设置 (A1-C2)
  * @returns {boolean} 是否兼容（单词难度 >= 用户难度）
  */
 export function isDifficultyCompatible(wordDifficulty, userDifficulty) {
-  const wordIdx = CEFR_LEVELS.indexOf(wordDifficulty);
-  const userIdx = CEFR_LEVELS.indexOf(userDifficulty);
-  // 边界处理：无效值默认使用 B1（索引 2）
-  const safeUserIdx = userIdx >= 0 ? userIdx : 2;
-  const safeWordIdx = wordIdx >= 0 ? wordIdx : 2;
-  return safeWordIdx >= safeUserIdx;
+  const normalizedWord = normalizeCefrLevel(wordDifficulty);
+  const normalizedUser = normalizeCefrLevel(userDifficulty);
+
+  // 边界处理：用户等级无效时默认使用 B1（索引 2）
+  const safeUser = normalizedUser || 'B1';
+  const userIdx = CEFR_LEVELS.indexOf(safeUser);
+
+  // 单词等级无效时：保守处理为不兼容（避免把低级词当成 B1 放行）
+  if (!normalizedWord) return false;
+  const wordIdx = CEFR_LEVELS.indexOf(normalizedWord);
+  return wordIdx >= userIdx;
 }
 
 /**
