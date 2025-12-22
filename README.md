@@ -66,7 +66,7 @@ Sapling 从[VocabMeld](https://github.com/lzskyline/VocabMeld)二次开发而来
 ### 方式一：从 GitHub Releases 下载（推荐）
 
 1. 访问 [Releases 页面](https://github.com/zpano/Sapling/releases)
-2. 下载最新的 `Sapling-x.x.x-xxxxxx.zip` 文件
+2. 下载最新的 `Sapling-nightly-YYYYMMDD.zip` 文件（如 `Sapling-nightly-20250101.zip`）
 3. 解压下载的文件
 4. 打开 Chrome 浏览器，访问 `chrome://extensions/`
 5. 开启右上角的"开发者模式"
@@ -235,7 +235,7 @@ LLM 根据以下规则选择替换词汇：
 | **原文(译文)** | `original(translated)` | 原文在前，译文在后 |
 
 所有样式都支持：
-- 翻译词以紫色显示，带虚线下划线
+- 翻译词以高亮显示，带虚线下划线
 - 原文以灰色显示（在括号中或通过悬停查看）
 
 #### 8.2 悬停提示框
@@ -446,35 +446,18 @@ function isDifficultyCompatible(wordDifficulty, userDifficulty) {
 
 ### 发布流程
 
-项目使用 GitHub Actions 自动构建和发布，支持两种发布模式：
+项目使用 GitHub Actions 自动构建和发布：
 
-#### 1. 开发版本（自动发布）
-- **触发条件**: 每次 push 到 `main` 分支
-- **文件名格式**: `Sapling-1.0.0-abc1234.zip`（版本号 + commit hash）
-- **Release 标签**: `v1.0.0-abc1234`
+#### Nightly Build（每日自动构建）
+- **触发条件**: 每天 UTC 0:00（北京时间 8:00）自动运行，也支持手动触发
+- **构建条件**: 仅在过去 24 小时内有新提交时才会构建
+- **文件名格式**: `Sapling-nightly-20250101.zip`（日期格式）
+- **Release 标签**: `nightly-20250101`
 - **状态**: Pre-release（开发预览版）
+- **Release 内容**: 包含过去 24 小时内所有 commit 的简短信息
 - **用途**: 用于测试和预览最新功能
 
-#### 2. 正式版本（手动发布）
-- **触发条件**: 推送 tag（格式 `v*.*.*`）
-- **文件名格式**: `Sapling-1.0.0.zip`（仅版本号）
-- **Release 标签**: `v1.0.0`
-- **状态**: Release（正式版）
-- **用途**: 稳定版本，推荐用户使用
-
-**发布正式版本步骤**：
-```bash
-# 1. 确保 package.json 中的版本号已更新
-# 2. 提交所有更改
-git add .
-git commit -m "chore: bump version to 1.0.1"
-
-# 3. 创建并推送 tag
-git tag v1.0.1
-git push origin main
-git push origin v1.0.1
-
-# 4. GitHub Actions 会自动构建并创建正式 Release
-```
-
-**注意**: Tag 版本号应与 `package.json` 中的版本号一致。
+**手动触发 Nightly Build**：
+1. 访问 GitHub 仓库的 Actions 页面
+2. 选择 "Nightly Build" workflow
+3. 点击 "Run workflow" 按钮
