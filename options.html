@@ -163,12 +163,24 @@
             </div>
           </div>
           <p class="help-text">选择 <strong id="selectedDifficulty">B1</strong> 等级，将显示该等级及以上难度的词汇</p>
-          <button type="button" class="secondary-button" id="retestVocabBtn">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor" d="M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22C6.47,22 2,17.5 2,12C2,6.5 6.47,2 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z"/>
-            </svg>
-            重新测试词汇量
-          </button>
+          <div class="retest-vocab-container">
+            <button type="button" class="retest-vocab-btn" id="retestVocabBtn">
+              <div class="retest-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                  <path fill="currentColor" d="M12,3A9,9 0 0,0 3,12A9,9 0 0,0 12,21A9,9 0 0,0 21,12H19C19,15.86 15.86,19 12,19A7,7 0 0,1 5,12A7,7 0 0,1 12,5C13.12,5 14.19,5.26 15.14,5.71L13,7.88V7.88L15.58,10.46L19.59,6.44L16.17,3.03L14,5.21C13.07,4.76 12.06,4.5 11,4.5C10.68,4.5 10.36,4.53 10.05,4.58C10.03,4.39 10,4.19 10,4A2,2 0 0,1 12,2A2,2 0 0,1 14,4C14,4.19 13.97,4.39 13.95,4.58C17.95,5.5 21,9 21,13H23A11,11 0 0,0 12,2A11,11 0 0,0 1,13A11,11 0 0,0 12,24A11,11 0 0,0 23,13C23,12.68 23,12.35 22.96,12.03C22.97,12.02 23,12 23,12H21A9,9 0 0,1 12,21Z"/>
+                </svg>
+              </div>
+              <div class="retest-content">
+                <span class="retest-title">重新测试词汇量</span>
+                <span class="retest-desc">基于 5000+ 真实单词，重新评估您的 CEFR 等级</span>
+              </div>
+              <div class="retest-arrow">
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                  <path fill="currentColor" d="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z"/>
+                </svg>
+              </div>
+            </button>
+          </div>
         </div>
 
         <div class="form-group">

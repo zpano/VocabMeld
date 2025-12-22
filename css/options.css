@@ -965,6 +965,139 @@ input:checked + .toggle-slider:before {
   background: rgba(239, 68, 68, 0.25);
 }
 
+/* 重新测试词汇量按钮 */
+.retest-vocab-container {
+  margin-top: 20px;
+}
+
+.retest-vocab-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, 
+    rgba(129, 199, 132, 0.15) 0%, 
+    rgba(165, 214, 167, 0.08) 100%);
+  border: 2px solid rgba(129, 199, 132, 0.3);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.retest-vocab-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(129, 199, 132, 0.15), 
+    transparent);
+  transition: left 0.5s ease;
+}
+
+.retest-vocab-btn:hover::before {
+  left: 100%;
+}
+
+.retest-vocab-btn:hover {
+  background: linear-gradient(135deg, 
+    rgba(129, 199, 132, 0.25) 0%, 
+    rgba(165, 214, 167, 0.15) 100%);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(129, 199, 132, 0.2);
+}
+
+.retest-vocab-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 8px rgba(129, 199, 132, 0.15);
+}
+
+.retest-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(129, 199, 132, 0.3);
+}
+
+.retest-icon svg {
+  color: white;
+}
+
+.retest-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.retest-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary-light);
+  line-height: 1.2;
+}
+
+.retest-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.retest-arrow {
+  flex-shrink: 0;
+  color: var(--primary);
+  opacity: 0.6;
+  transition: all 0.3s ease;
+}
+
+.retest-vocab-btn:hover .retest-arrow {
+  opacity: 1;
+  transform: translateX(4px);
+}
+
+.retest-vocab-btn:hover .retest-icon {
+  box-shadow: 0 6px 16px rgba(129, 199, 132, 0.4);
+  transform: scale(1.05);
+}
+
+@media (max-width: 768px) {
+  .retest-vocab-btn {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+  
+  .retest-icon {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .retest-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .retest-title {
+    font-size: 14px;
+  }
+  
+  .retest-desc {
+    font-size: 12px;
+  }
+}
+
 /* Fixed Manual Save Button */
 .manual-save-btn {
   position: fixed;
