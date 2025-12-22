@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sapling - 词汇量测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1B1612 0%, #26201A 100%);
+            color: #D7CCC8;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 700px;
+            width: 100%;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo img {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+        }
+
+        .logo h1 {
+            font-size: 32px;
+            color: #81C784;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .logo p {
+            color: #A5D6A7;
+            font-size: 16px;
+        }
+
+        .card {
+            background: #26201A;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(129, 199, 132, 0.2);
+        }
+
+        .welcome-screen {
+            text-align: center;
+        }
+
+        .welcome-screen h2 {
+            font-size: 28px;
+            color: #81C784;
+            margin-bottom: 20px;
+        }
+
+        .welcome-screen p {
+            font-size: 16px;
+            line-height: 1.8;
+            margin-bottom: 16px;
+            color: #D7CCC8;
+        }
+
+        .welcome-screen ul {
+            text-align: left;
+            margin: 24px 0;
+            padding-left: 24px;
+        }
+
+        .welcome-screen li {
+            margin: 12px 0;
+            line-height: 1.6;
+        }
+
+        .test-info {
+            background: rgba(129, 199, 132, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 24px 0;
+            border-left: 4px solid #81C784;
+        }
+
+        .test-info h3 {
+            color: #A5D6A7;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .test-info p {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #81C784, #A5D6A7);
+            color: #1B1612;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(129, 199, 132, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(129, 199, 132, 0.2);
+            color: #A5D6A7;
+            border: 2px solid #81C784;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(129, 199, 132, 0.3);
+        }
+
+        .test-screen {
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(129, 199, 132, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #81C784, #A5D6A7);
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #A5D6A7;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .word-card {
+            text-align: center;
+            margin: 40px 0;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .level-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            background: linear-gradient(135deg, #81C784, #A5D6A7);
+            color: #1B1612;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        .word {
+            font-size: 48px;
+            color: #A5D6A7;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-transform: lowercase;
+        }
+
+        .example {
+            font-size: 18px;
+            color: #D7CCC8;
+            font-style: italic;
+            margin: 16px 0;
+            padding: 20px;
+            background: rgba(129, 199, 132, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #81C784;
+        }
+
+        .hint {
+            font-size: 14px;
+            color: rgba(215, 204, 200, 0.6);
+            margin-top: 24px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 16px;
+            margin-top: 40px;
+            justify-content: center;
+        }
+
+        .result-screen {
+            display: none;
+            text-align: center;
+        }
+
+        .result-screen h2 {
+            font-size: 32px;
+            color: #81C784;
+            margin-bottom: 24px;
+        }
+
+        .result-level {
+            font-size: 64px;
+            color: #A5D6A7;
+            font-weight: 700;
+            margin: 32px 0;
+            text-transform: uppercase;
+        }
+
+        .result-description {
+            background: rgba(129, 199, 132, 0.1);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            border: 2px solid rgba(129, 199, 132, 0.3);
+        }
+
+        .result-description h3 {
+            color: #A5D6A7;
+            margin-bottom: 12px;
+            font-size: 22px;
+        }
+
+        .result-description p {
+            margin: 8px 0;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin: 32px 0;
+        }
+
+        .stat-item {
+            background: rgba(129, 199, 132, 0.1);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(129, 199, 132, 0.2);
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: rgba(215, 204, 200, 0.7);
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            color: #A5D6A7;
+            font-weight: 700;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(129, 199, 132, 0.2);
+            border-top-color: #81C784;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 600px) {
+            .card {
+                padding: 24px;
+            }
+
+            .word {
+                font-size: 36px;
+            }
+
+            .result-level {
+                font-size: 48px;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="icons/icon.png" alt="Sapling Logo">
+            <h1>Sapling</h1>
+            <p>沉浸式语言学习</p>
+        </div>
+
+        <div class="card">
+            <!-- 欢迎界面 -->
+            <div class="welcome-screen" id="welcomeScreen">
+                <h2>👋 欢迎使用 Sapling！</h2>
+                <p>在开始之前，让我们通过一个简短的词汇量测试来评估您的英语水平。</p>
+                <p>这将帮助我们为您推荐最适合的学习难度。</p>
+
+                <div class="test-info">
+                    <h3>📝 测试说明</h3>
+                    <p>• 我们将从真实的 CEFR 单词表中随机选择单词进行测试</p>
+                    <p>• 请诚实地判断您是否认识这个单词的意思</p>
+                    <p>• 测试大约需要 2-3 分钟，每个等级测试 10 个单词</p>
+                    <p>• 根据您的答案，我们会自动调整测试难度</p>
+                    <p>• 当某个等级认识率低于 80% 时，测试将停止</p>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-primary" id="startTestBtn">开始测试</button>
+                    <button class="btn btn-secondary" id="skipTestBtn">跳过测试</button>
+                </div>
+
+                <p class="hint">您也可以稍后在设置中手动调整难度等级</p>
+            </div>
+
+            <!-- 测试界面 -->
+            <div class="test-screen" id="testScreen">
+                <div class="progress-text" id="progressText">正在测试: A1 级别 (1/30)</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+
+                <div class="word-card">
+                    <span class="level-badge" id="levelBadge">A1 - 初学者</span>
+                    <div class="word" id="wordDisplay">hello</div>
+                    <div class="example" id="exampleDisplay"></div>
+                    <p class="hint">请仔细思考您是否真的认识这个单词的准确意思</p>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-secondary" id="dontKnowBtn">不认识</button>
+                    <button class="btn btn-primary" id="knowBtn">认识</button>
+                </div>
+            </div>
+
+            <!-- 结果界面 -->
+            <div class="result-screen" id="resultScreen">
+                <h2>🎉 测试完成！</h2>
+                <div class="result-level" id="resultLevel">B1</div>
+                
+                <div class="result-description" id="resultDescription">
+                    <h3>进阶级 (B1)</h3>
+                    <p>能够理解工作、学习和休闲等熟悉话题的要点。</p>
+                    <p>词汇量: 约 2000-3000 个词汇</p>
+                </div>
+
+                <div class="stats" id="statsDisplay"></div>
+
+                <div class="actions">
+                    <button class="btn btn-primary" id="finishBtn">完成设置</button>
+                </div>
+
+                <p class="hint">您的难度等级已保存，可以随时在设置中调整</p>
+            </div>
+
+            <!-- 加载界面 -->
+            <div class="loading" id="loadingScreen" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p style="margin-top: 16px;">正在保存设置...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/vocab-test-ui.js"></script>
+</body>
+</html>
+

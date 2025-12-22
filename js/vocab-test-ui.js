@@ -51,10 +51,24 @@ document.addEventListener('DOMContentLoaded', () => {
 /**
  * 开始测试
  */
-function startTest() {
+async function startTest() {
   vocabTest = new VocabTest();
-  showScreen('test');
-  showNextWord();
+  
+  // 显示加载界面
+  showScreen('loading');
+  loadingScreen.querySelector('p').textContent = '正在加载单词表...';
+  
+  try {
+    // 初始化测试（加载单词表）
+    await vocabTest.initialize();
+    
+    // 开始测试
+    showScreen('test');
+    showNextWord();
+  } catch (error) {
+    console.error('[Sapling] Failed to start vocab test:', error);
+    alert('加载单词表失败，请刷新页面重试');
+  }
 }
 
 /**
@@ -108,14 +122,23 @@ function showNextWord() {
   const description = CEFR_DESCRIPTIONS[word.level];
   levelBadge.textContent = `${word.level} - ${description.title.split(' ')[1].replace(/[()]/g, '')}`;
   wordDisplay.textContent = word.word;
-  exampleDisplay.textContent = word.example;
+  
+  // 如果有例句则显示，否则隐藏
+  if (word.example && word.example.trim()) {
+    exampleDisplay.textContent = word.example;
+    exampleDisplay.style.display = 'block';
+  } else {
+    exampleDisplay.style.display = 'none';
+  }
 
   // 添加动画效果
   wordDisplay.style.opacity = '0';
   exampleDisplay.style.opacity = '0';
   setTimeout(() => {
     wordDisplay.style.opacity = '1';
-    exampleDisplay.style.opacity = '1';
+    if (word.example && word.example.trim()) {
+      exampleDisplay.style.opacity = '1';
+    }
   }, 100);
 }
 
