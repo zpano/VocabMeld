@@ -1,0 +1,114 @@
+name: Nightly Build
+
+on:
+  schedule:
+    # 每天 UTC 0:00 运行 (北京时间 8:00)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 允许手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  nightly-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for commits today
+        id: check
+        run: |
+          # 获取过去24小时内的提交数量
+          COMMITS_TODAY=$(git log --since="24 hours ago" --oneline | wc -l)
+          echo "commits_count=$COMMITS_TODAY" >> $GITHUB_OUTPUT
+          if [ "$COMMITS_TODAY" -eq 0 ]; then
+            echo "No commits in the last 24 hours, skipping build"
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "Found $COMMITS_TODAY commits in the last 24 hours"
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check.outputs.should_build == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        if: steps.check.outputs.should_build == 'true'
+        run: npm install
+
+      - name: Build extension
+        if: steps.check.outputs.should_build == 'true'
+        run: npm run build
+
+      - name: Get version and commit info
+        if: steps.check.outputs.should_build == 'true'
+        id: info
+        run: |
+          echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+          echo "date_compact=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+          # 获取过去24小时内的提交信息
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          git log --since="24 hours ago" --pretty=format:"- %s (%h)" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create release package
+        if: steps.check.outputs.should_build == 'true'
+        run: |
+          mkdir -p release
+          zip -r release/Sapling-nightly-${{ steps.info.outputs.date_compact }}.zip \
+            manifest.json \
+            icons/ \
+            css/ \
+            js/ \
+            dist/ \
+            vendor/ \
+            _locales/ \
+            popup.html \
+            options.html \
+            offscreen.html \
+            -x "*.map" \
+            -x "node_modules/*" \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "scripts/*"
+
+      - name: Create Nightly Release
+        if: steps.check.outputs.should_build == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: nightly-${{ steps.info.outputs.date_compact }}
+          name: Nightly Build ${{ steps.info.outputs.date }}
+          body: |
+            **Nightly Build** - ${{ steps.info.outputs.date }}
+            **Version:** ${{ steps.info.outputs.version }}
+            **Latest Commit:** ${{ steps.info.outputs.short_sha }}
+
+            ## Changes in the last 24 hours
+            ${{ steps.info.outputs.commits }}
+
+            ## Installation
+            1. Download `Sapling-nightly-${{ steps.info.outputs.date_compact }}.zip`
+            2. Unzip the file
+            3. Open Chrome and go to `chrome://extensions/`
+            4. Enable "Developer mode"
+            5. Click "Load unpacked extension"
+            6. Select the unzipped folder
+
+            ---
+            ⚠️ This is an automated nightly build and may be unstable.
+          files: release/*.zip
+          prerelease: true
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
