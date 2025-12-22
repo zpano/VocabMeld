@@ -678,6 +678,17 @@ async function processPage(viewportOnly = false) {
       } catch (e) {
         console.error('[Sapling] Error processing memorize list:', e);
         console.error('[Sapling] Error processing memorize list:', e);
+        
+        // 显示错误提示
+        const isApiError = ['API_NOT_CONFIGURED', 'API_REQUEST_FAILED', 'NETWORK_ERROR', 
+                           'INVALID_API_KEY', 'FORBIDDEN', 'RATE_LIMIT', 'SERVER_ERROR'].includes(e.code);
+        
+        if (isApiError) {
+          showToast(`Sapling: ${e.message}`, { type: 'error', duration: 3000 });
+        } else {
+          showToast(`Sapling: 处理记忆列表时出错`, { type: 'error', duration: 3000 });
+        }
+        
         errors++;
       }
     }
@@ -759,6 +770,19 @@ async function processPage(viewportOnly = false) {
           }).catch(error => {
             console.error('[Sapling] Async translation error:', error);
             el.classList.remove('Sapling-processing');
+            
+            // 显示错误提示（异步错误通常不需要立即提示，已在同步阶段处理）
+            // 但如果是严重错误，仍然提示
+            const isApiError = ['API_NOT_CONFIGURED', 'API_REQUEST_FAILED', 'NETWORK_ERROR', 
+                               'INVALID_API_KEY', 'FORBIDDEN', 'RATE_LIMIT', 'SERVER_ERROR'].includes(error.code);
+            
+            if (isApiError && !window.__saplingApiErrorShown) {
+              window.__saplingApiErrorShown = true;
+              showToast(`Sapling: ${error.message}`, { type: 'error', duration: 3000 });
+              setTimeout(() => {
+                window.__saplingApiErrorShown = false;
+              }, 5000);
+            }
           });
         } else {
           el.classList.remove('Sapling-processing');
@@ -982,6 +1006,17 @@ function setupEventListeners() {
         }).catch(error => {
           console.error('[Sapling] Error processing specific words:', error);
           console.error('[Sapling] Error processing specific words:', error);
+          
+          // 显示错误提示
+          const isApiError = ['API_NOT_CONFIGURED', 'API_REQUEST_FAILED', 'NETWORK_ERROR', 
+                             'INVALID_API_KEY', 'FORBIDDEN', 'RATE_LIMIT', 'SERVER_ERROR'].includes(error.code);
+          
+          if (isApiError) {
+            showToast(`Sapling: ${error.message}`, { type: 'error', duration: 3000 });
+          } else {
+            showToast(`Sapling: 处理单词时出错 - ${error.message}`, { type: 'error', duration: 3000 });
+          }
+          
           sendResponse({ success: false, error: error.message });
         });
         return true;
@@ -1003,7 +1038,11 @@ function setupEventListeners() {
     if (message.action === 'clearCache' || message.action === 'resetAllData') {
       clearWordCache({ removeStorage: true })
         .then(() => sendResponse({ success: true }))
-        .catch((error) => sendResponse({ success: false, message: error?.message || String(error) }));
+        .catch((error) => {
+          console.error('[Sapling] Error clearing cache:', error);
+          showToast(`Sapling: 清空缓存失败 - ${error?.message || String(error)}`, { type: 'error', duration: 3000 });
+          sendResponse({ success: false, message: error?.message || String(error) });
+        });
       return true;
     }
   });

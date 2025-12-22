@@ -667,6 +667,8 @@ class ApiService {
 
       } catch (error) {
         console.error('[Sapling] translateSpecificWords error:', error);
+        // 重新抛出错误，让调用方处理并显示提示
+        throw error;
       }
     }
 
