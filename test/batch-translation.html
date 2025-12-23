@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sapling 批量翻译测试页</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; line-height: 1.6; max-width: 900px; margin: 0 auto; }
+      h2 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 8px; }
+      h3 { color: #555; margin-top: 24px; }
+      .hint { color: #666; font-size: 14px; margin-bottom: 16px; background: #fff3cd; padding: 12px; border-radius: 8px; border-left: 4px solid #ffc107; }
+      .box { padding: 16px; border: 1px solid #ddd; border-radius: 10px; background: #fafafa; margin-bottom: 16px; }
+      .box p { margin: 12px 0; }
+      .paragraph-label { font-size: 12px; color: #888; font-weight: bold; margin-bottom: 4px; }
+      code { background: #f1f1f1; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+      .test-section { margin-bottom: 32px; }
+      .config-info { background: #e3f2fd; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+      .config-info code { background: #bbdefb; }
+      .lang-en { border-left: 4px solid #2196F3; }
+      .lang-zh { border-left: 4px solid #f44336; }
+      .lang-mixed { border-left: 4px solid #9c27b0; }
+    </style>
+  </head>
+  <body>
+    <h2>Sapling 批量翻译测试页</h2>
+
+    <div class="hint">
+      <strong>测试目标：</strong>验证批量翻译功能是否正常工作<br>
+      <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+        <li>多段落在单个 API 请求中处理（默认 3 段落/请求）</li>
+        <li>不同语言的段落分组处理</li>
+        <li>返回结果正确对应到各自段落</li>
+        <li>缓存独立检查</li>
+      </ul>
+    </div>
+
+    <div class="config-info">
+      <strong>🧪 测试步骤</strong><br>
+      <ol style="margin: 8px 0 0 0; padding-left: 20px;">
+        <li>启动 Mock 服务器: <code>npm run mock</code></li>
+        <li>在此页面 URL 后添加 <code>?sapling-mock=1</code> 参数（或 <a href="?sapling-mock=1" style="color: #1976d2;">点击这里</a>）</li>
+        <li>点击扩展图标 → 处理页面</li>
+        <li>打开 DevTools Console 查看 <code>[Sapling]</code> 日志</li>
+        <li>检查 Mock 服务器终端输出</li>
+      </ol>
+    </div>
+
+    <!-- 测试 1: 基本批量处理 -->
+    <div class="test-section">
+      <h3>测试 1：英文段落批量处理（9 段落 → 3 批次）</h3>
+
+      <div class="box lang-en">
+        <div class="paragraph-label">Paragraph 1 (Batch 1)</div>
+        <p>
+          Artificial intelligence has revolutionized the technology sector, transforming how businesses operate
+          and innovate. Machine learning algorithms can now process unprecedented amounts of data, enabling
+          sophisticated pattern recognition and predictive analytics capabilities.
+        </p>
+      </div>
+
+      <div class="box lang-en">
+        <div class="paragraph-label">Paragraph 2 (Batch 1)</div>
+        <p>
+          The pharmaceutical industry relies heavily on computational methods for drug discovery and development.
+          Researchers utilize molecular simulations and bioinformatics tools to identify promising therapeutic
+          candidates, significantly accelerating the research pipeline.
+        </p>
+      </div>
+
+      <div class="box lang-en">
+        <div class="paragraph-label">Paragraph 3 (Batch 1)</div>
+        <p>
+          Environmental sustainability has become a paramount concern for contemporary organizations.
+          Companies are implementing comprehensive strategies to reduce their carbon footprint and
+          minimize ecological impact through renewable energy adoption and waste reduction initiatives.
+        </p>
+      </div>
+
+      <div class="box lang-en">
+        <div class="paragraph-label">Paragraph 4 (Batch 2)</div>
+        <p>
+          The aerospace engineering field continues to push boundaries with hypersonic propulsion systems
+          and advanced materials science. Engineers are developing lightweight composite structures that
+          can withstand extreme temperatures and aerodynamic forces during atmospheric reentry.
+        </p>
+      </div>
+
+      <div class="box lang-en">
+        <div class="paragraph-label">Paragraph 5 (Batch 2)</div>
+        <p>
+          Quantum computing represents a paradigm shift in computational capabilities. These revolutionary
+          machines leverage quantum mechanical phenomena like superposition and entanglement to solve
+          complex optimization problems that are intractable for classical computers.
+        </p>
+      </div>
+
+      <div class="box lang-en">
+        <div class="paragraph-label">Paragraph 6 (Batch 2)</div>
+        <p>
+          Neuroscience research has unveiled remarkable insights into cognitive processes and neuroplasticity.
+          Advanced neuroimaging techniques enable scientists to observe brain activity with unprecedented
+          resolution, facilitating breakthroughs in understanding consciousness and memory formation.
+        </p>
+      </div>
+
+      <div class="box lang-en">
+        <div class="paragraph-label">Paragraph 7 (Batch 3)</div>
+        <p>
+          The cryptocurrency ecosystem has evolved beyond speculative trading into decentralized finance
+          applications. Blockchain technology enables transparent and immutable transaction records,
+          revolutionizing traditional financial intermediation and cross-border remittance services.
+        </p>
+      </div>
+
+      <div class="box lang-en">
+        <div class="paragraph-label">Paragraph 8 (Batch 3)</div>
+        <p>
+          Biotechnology advances in genetic engineering have opened unprecedented possibilities for
+          personalized medicine. CRISPR-based therapeutics can now target specific genetic mutations,
+          offering potential cures for previously incurable hereditary diseases.
+        </p>
+      </div>
+
+      <div class="box lang-en">
+        <div class="paragraph-label">Paragraph 9 (Batch 3)</div>
+        <p>
+          Autonomous vehicle technology integrates sophisticated sensor fusion and deep learning algorithms
+          to navigate complex urban environments. These self-driving systems must process real-time data
+          from multiple perception modalities while ensuring passenger safety and regulatory compliance.
+        </p>
+      </div>
+    </div>
+
+    <!-- 测试 2: 中文段落批量处理 -->
+    <div class="test-section">
+      <h3>测试 2：中文段落批量处理（3 段落 → 1 批次）</h3>
+
+      <div class="box lang-zh">
+        <div class="paragraph-label">中文段落 1</div>
+        <p>
+          人工智能技术正在深刻改变现代社会的运作方式。从智能语音助手到自动驾驶汽车，机器学习算法已经渗透到日常生活的方方面面。
+          这些先进的计算系统能够处理海量数据，识别复杂模式，并做出精准预测，为各行各业带来革命性的变革。
+        </p>
+      </div>
+
+      <div class="box lang-zh">
+        <div class="paragraph-label">中文段落 2</div>
+        <p>
+          量子计算代表着计算技术的重大突破。与传统计算机不同，量子计算机利用量子力学原理，如叠加态和量子纠缠，
+          能够以指数级速度解决某些特定类型的复杂问题。这项技术有望在密码学、药物研发和金融建模等领域产生深远影响。
+        </p>
+      </div>
+
+      <div class="box lang-zh">
+        <div class="paragraph-label">中文段落 3</div>
+        <p>
+          可持续发展已成为全球关注的核心议题。各国政府和企业正在积极采取措施减少碳排放，推广可再生能源，
+          并实施循环经济策略。应对气候变化需要国际社会的通力合作，以确保子孙后代能够享有一个宜居的地球环境。
+        </p>
+      </div>
+    </div>
+
+    <!-- 测试 3: 混合语言页面 -->
+    <div class="test-section">
+      <h3>测试 3：混合语言（验证按语言分组）</h3>
+      <div class="hint" style="background: #f3e5f5; border-left-color: #9c27b0;">
+        <strong>预期：</strong>英文和中文段落应该分别发送到不同的 API 批次请求，不会混在一起。
+      </div>
+
+      <div class="box lang-mixed">
+        <div class="paragraph-label">Mixed 1 - English</div>
+        <p>
+          The proliferation of Internet of Things devices has created unprecedented connectivity between
+          physical objects and digital systems. Smart sensors embedded in infrastructure enable real-time
+          monitoring and predictive maintenance capabilities across industrial applications.
+        </p>
+      </div>
+
+      <div class="box lang-mixed">
+        <div class="paragraph-label">Mixed 2 - 中文</div>
+        <p>
+          区块链技术正在重塑金融服务行业的基础架构。去中心化的分布式账本系统提供了前所未有的交易透明度和安全性，
+          有效降低了跨境支付的成本和时间延迟，为全球金融包容性开辟了新的可能性。
+        </p>
+      </div>
+
+      <div class="box lang-mixed">
+        <div class="paragraph-label">Mixed 3 - English</div>
+        <p>
+          Renewable energy technologies have achieved remarkable cost reductions over the past decade.
+          Solar photovoltaic systems and wind turbines now compete economically with traditional fossil
+          fuel power generation, driving accelerated adoption of clean energy infrastructure globally.
+        </p>
+      </div>
+
+      <div class="box lang-mixed">
+        <div class="paragraph-label">Mixed 4 - 中文</div>
+        <p>
+          基因编辑技术的突破为医学研究开辟了全新领域。CRISPR技术能够精确修改基因序列，为治疗遗传性疾病提供了希望。
+          科学家们正在探索利用这项技术治疗癌症、艾滋病等重大疾病的可能性。
+        </p>
+      </div>
+    </div>
+
+    <!-- 测试 4: 边界情况 -->
+    <div class="test-section">
+      <h3>测试 4：边界情况</h3>
+
+      <div class="box">
+        <div class="paragraph-label">短段落（应跳过，&lt;50字符）</div>
+        <p>This is a short paragraph.</p>
+      </div>
+
+      <div class="box">
+        <div class="paragraph-label">单个长段落</div>
+        <p>
+          Cybersecurity professionals employ sophisticated intrusion detection systems and encryption
+          protocols to safeguard sensitive organizational data from malicious actors. The escalating
+          complexity of cyber threats necessitates continuous adaptation of defensive strategies and
+          comprehensive security awareness training for all personnel within enterprise environments.
+        </p>
+      </div>
+    </div>
+
+    <div style="margin-top: 40px; padding: 16px; background: #f5f5f5; border-radius: 8px; font-size: 13px; color: #666;">
+      <strong>调试提示：</strong><br>
+      1. Mock 服务器终端会显示每个请求的详细信息<br>
+      2. 打开 DevTools → Console 查看 <code>[Sapling]</code> 日志<br>
+      3. 每个 API 请求会显示：段落数量、段落索引、语言方向<br>
+      4. 响应会显示返回的词汇数据<br>
+      5. 预期请求数：英文 3 批 + 中文 1 批 + 混合（英文 1 批 + 中文 1 批）= 约 6 个请求
+    </div>
+  </body>
+</html>

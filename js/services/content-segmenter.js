@@ -14,7 +14,8 @@ class ContentSegmenter {
   constructor() {
     this.minSegmentLength = 50;   // 最小分段长度
     this.maxSegmentLength = 2000; // 最大分段长度
-    this.processedFingerprints = new Set();
+    this.processedFingerprints = new Set();  // 已完成处理
+    this.pendingFingerprints = new Set();    // 正在处理中
   }
 
   /**
@@ -71,17 +72,20 @@ class ContentSegmenter {
    * @returns {string}
    */
   generateFingerprint(text, path = '') {
-    // 取前100字符作为指纹基础
+    // 直接使用路径作为指纹，不依赖文本内容
+    // 这样即使文本被替换后再获取，fingerprint 也保持不变
+    // path 已包含元素路径和 chunk 索引（如 "BODY>DIV[2]>P[1]::chunk0"）
+    if (path) {
+      return path;
+    }
+    // 仅当 path 为空时使用文本哈希作为后备
     const content = text.slice(0, 100).trim();
     let hash = 0;
-    const str = content + path;
-    
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // 转换为32位整数
+      hash = hash & hash;
     }
-    
     return hash.toString(36);
   }
 
@@ -91,22 +95,94 @@ class ContentSegmenter {
    * @returns {string}
    */
   getElementPath(element) {
-    const parts = [];
-    let current = element;
-    
-    while (current && current !== document.body) {
-      let selector = current.tagName.toLowerCase();
-      if (current.id) {
-        selector += `#${current.id}`;
-      } else if (current.className) {
-        const classes = current.className.toString().split(' ').slice(0, 2).join('.');
-        if (classes) selector += `.${classes}`;
-      }
-      parts.unshift(selector);
-      current = current.parentElement;
+    // 使用 Chrome DevTools 的 XPath 实现
+    return this._xPath(element, false);
+  }
+
+  /**
+   * 生成元素的 XPath（基于 Chrome DevTools 实现）
+   * @param {Node} node
+   * @param {boolean} optimized - 是否优化（遇到 id 时停止）
+   * @returns {string}
+   */
+  _xPath(node, optimized = false) {
+    if (node.nodeType === Node.DOCUMENT_NODE) {
+      return '/';
     }
-    
-    return parts.join('>');
+
+    const steps = [];
+    let contextNode = node;
+    while (contextNode) {
+      const step = this._xPathValue(contextNode, optimized);
+      if (!step) break;
+      steps.push(step);
+      if (step.optimized) break;
+      contextNode = contextNode.parentNode;
+    }
+
+    steps.reverse();
+    return (steps.length && steps[0].optimized ? '' : '/') + steps.map(s => s.value).join('/');
+  }
+
+  /**
+   * 获取单个节点的 XPath 值
+   */
+  _xPathValue(node, optimized) {
+    let ownValue;
+    const ownIndex = this._xPathIndex(node);
+    if (ownIndex === -1) return null;
+
+    switch (node.nodeType) {
+      case Node.ELEMENT_NODE:
+        if (optimized && node.getAttribute('id')) {
+          return { value: '//*[@id="' + node.getAttribute('id') + '"]', optimized: true };
+        }
+        ownValue = node.localName;
+        break;
+      case Node.DOCUMENT_NODE:
+        ownValue = '';
+        break;
+      default:
+        ownValue = '';
+        break;
+    }
+
+    if (ownIndex > 0) {
+      ownValue += '[' + ownIndex + ']';
+    }
+
+    return { value: ownValue, optimized: node.nodeType === Node.DOCUMENT_NODE };
+  }
+
+  /**
+   * 获取节点在同类型兄弟中的索引
+   */
+  _xPathIndex(node) {
+    const siblings = node.parentNode ? node.parentNode.children : null;
+    if (!siblings) return 0;
+
+    let hasSameNamedElements = false;
+    for (let i = 0; i < siblings.length; ++i) {
+      if (siblings[i] !== node &&
+          siblings[i].nodeType === Node.ELEMENT_NODE &&
+          node.nodeType === Node.ELEMENT_NODE &&
+          siblings[i].localName === node.localName) {
+        hasSameNamedElements = true;
+        break;
+      }
+    }
+
+    if (!hasSameNamedElements) return 0;
+
+    let ownIndex = 1;
+    for (let i = 0; i < siblings.length; ++i) {
+      if (siblings[i].nodeType === Node.ELEMENT_NODE &&
+          siblings[i].localName === node.localName) {
+        if (siblings[i] === node) return ownIndex;
+        ++ownIndex;
+      }
+    }
+    return -1;
   }
 
   /**
@@ -119,10 +195,45 @@ class ContentSegmenter {
   }
 
   /**
-   * 标记指纹为已处理
+   * 检查指纹是否正在处理中
+   * @param {string} fingerprint - 内容指纹
+   * @returns {boolean}
+   */
+  isPending(fingerprint) {
+    return this.pendingFingerprints.has(fingerprint);
+  }
+
+  /**
+   * 检查指纹是否已处理或正在处理中
+   * @param {string} fingerprint - 内容指纹
+   * @returns {boolean}
+   */
+  isProcessedOrPending(fingerprint) {
+    return this.processedFingerprints.has(fingerprint) || this.pendingFingerprints.has(fingerprint);
+  }
+
+  /**
+   * 标记指纹为正在处理中
+   * @param {string} fingerprint - 内容指纹
+   */
+  markPending(fingerprint) {
+    this.pendingFingerprints.add(fingerprint);
+  }
+
+  /**
+   * 取消正在处理中的标记
+   * @param {string} fingerprint - 内容指纹
+   */
+  unmarkPending(fingerprint) {
+    this.pendingFingerprints.delete(fingerprint);
+  }
+
+  /**
+   * 标记指纹为已处理（同时移除 pending 状态）
    * @param {string} fingerprint - 内容指纹
    */
   markProcessed(fingerprint) {
+    this.pendingFingerprints.delete(fingerprint);
     this.processedFingerprints.add(fingerprint);
   }
 
@@ -131,6 +242,7 @@ class ContentSegmenter {
    */
   clearProcessed() {
     this.processedFingerprints.clear();
+    this.pendingFingerprints.clear();
   }
 
   /**
@@ -424,7 +536,15 @@ class ContentSegmenter {
         const childEl = child;
         if (!inlineTextTags.has(childEl.tagName)) continue;
         if (this.shouldSkipNode(childEl)) continue;
-        if (childEl.closest?.('.Sapling-translated')) continue;
+
+        // 如果是已替换的元素，使用原始文本
+        if (childEl.classList?.contains('Sapling-translated')) {
+          const original = childEl.getAttribute('data-original');
+          if (original) {
+            texts.push(original);
+          }
+          continue;
+        }
 
         const t = childEl.textContent.trim();
         if (!t || isCodeText(t)) continue;
@@ -550,20 +670,26 @@ class ContentSegmenter {
    * @returns {string}
    */
   getTextContent(element) {
+    // 克隆元素，将已替换的词汇恢复为原始文本
+    // 这样可以保持 fingerprint 一致，避免重复处理
+    const clone = element.cloneNode(true);
+    clone.querySelectorAll('.Sapling-translated').forEach(el => {
+      const original = el.getAttribute('data-original');
+      if (original) {
+        // 用原始文本替换整个 span
+        el.replaceWith(document.createTextNode(original));
+      }
+    });
+
     const texts = [];
-    
+
     const walker = document.createTreeWalker(
-      element,
+      clone,
       NodeFilter.SHOW_TEXT,
       {
         acceptNode: (node) => {
           const parent = node.parentElement;
           if (!parent) return NodeFilter.FILTER_REJECT;
-
-          // 跳过已替换的内容（包含其内部的 original/translation spans）
-          if (parent.closest?.('.Sapling-translated')) {
-            return NodeFilter.FILTER_REJECT;
-          }
 
           if (this.shouldSkipNode(node.parentElement)) {
             return NodeFilter.FILTER_REJECT;

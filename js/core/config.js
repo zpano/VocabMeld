@@ -108,6 +108,8 @@ export const DEFAULT_CONFIG = {
 
   // 高级设置
   concurrencyLimit: 5,
+  maxBatchSize: 3,
+  processFullPage: false,
 
   // 主题配色
   theme: { ...DEFAULT_THEME },
@@ -132,7 +134,8 @@ export const CACHE_SIZE_LIMITS = {
 export const CACHE_SIZE_STEP = 1024;
 
 export const ADVANCED_LIMITS = {
-  concurrencyLimit: { min: 1, max: 20 }
+  concurrencyLimit: { min: 1, max: 20 },
+  maxBatchSize: { min: 1, max: 10 }
 };
 
 /**
@@ -157,6 +160,10 @@ function normalizeIntInRange(value, fallback, { min, max }) {
 
 export function normalizeConcurrencyLimit(value, fallback = DEFAULT_CONFIG.concurrencyLimit) {
   return normalizeIntInRange(value, fallback, ADVANCED_LIMITS.concurrencyLimit);
+}
+
+export function normalizeMaxBatchSize(value, fallback = DEFAULT_CONFIG.maxBatchSize) {
+  return normalizeIntInRange(value, fallback, ADVANCED_LIMITS.maxBatchSize);
 }
 
 // 需要跳过的标签

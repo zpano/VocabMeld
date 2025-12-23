@@ -1,5 +1,5 @@
 import { CEFR_LEVELS, INTENSITY_CONFIG, SKIP_TAGS, SKIP_CLASSES } from './config/constants.js';
-import { CACHE_CONFIG, DEFAULT_THEME, normalizeCacheMaxSize, normalizeConcurrencyLimit } from './core/config.js';
+import { CACHE_CONFIG, DEFAULT_THEME, normalizeCacheMaxSize, normalizeConcurrencyLimit, normalizeMaxBatchSize } from './core/config.js';
 import { initLanguageDetector, detectLanguage } from './utils/language-detector.js';
 import { isDifficultyCompatible, isCodeText, isNonLearningWord } from './utils/word-filters.js';
 import { isInAllowedContentEditableRegion } from './utils/dom-utils.js';
@@ -13,10 +13,24 @@ import { textReplacer } from './services/text-replacer.js';
 // ============ 状态管理 ============
 let config = null;
 let isProcessing = false;
+let isPageActivated = false;  // 跟踪页面是否已被激活处理（手动或自动）
 const WORD_CACHE_STORAGE_KEY = 'Sapling_word_cache';
 let wordCache = new Map();
 const tooltipManager = new TooltipManager();
 let processingGeneration = 0;
+let restoreGeneration = 0;  // 仅在 restoreAll() 时递增，用于区分「还原」和「滚动」
+
+// ============ 语言队列批量处理 ============
+const DEFAULT_LANG_BATCH_SIZE = 3;  // 默认批量大小
+const LANG_DEBOUNCE_DELAY = 2000;   // 2秒 debounce
+
+// 全局语言队列 Map<langKey, { segments: [], timer: null }>
+const langBatchQueue = new Map();
+
+// 队列处理函数引用（在 processPage 中设置）
+let queueProcessBatchFn = null;
+let queueWhitelistWords = null;
+let queueRunGeneration = 0;
 
 function normalizeDomainEntry(entry) {
   if (!entry) return '';
@@ -48,6 +62,7 @@ function isHostnameBlacklisted(hostname, blacklistList) {
 }
 
 // ============ 配置加载 ============
+
 async function loadConfig() {
   return new Promise((resolve) => {
     const applyConfig = (result = {}) => {
@@ -70,14 +85,23 @@ async function loadConfig() {
         translationStyle: safeResult.translationStyle || 'original-translation',
         cacheMaxSize: normalizeCacheMaxSize(safeResult.cacheMaxSize, CACHE_CONFIG.maxSize),
         concurrencyLimit: normalizeConcurrencyLimit(safeResult.concurrencyLimit),
+        maxBatchSize: normalizeMaxBatchSize(safeResult.maxBatchSize),
         theme: { ...DEFAULT_THEME, ...(safeResult.theme || {}) },
         enabled: safeResult.enabled ?? true,
         blacklist: safeResult.blacklist || [],
         blacklistNormalized: normalizeBlacklist(safeResult.blacklist),
         whitelist: safeResult.whitelist || [],
         learnedWords: safeResult.learnedWords || [],
-        memorizeList: safeResult.memorizeList || []
+        memorizeList: safeResult.memorizeList || [],
+        processFullPage: safeResult.processFullPage ?? false
       };
+
+      // 测试模式：URL 参数 ?sapling-mock=1 时自动切换到本地 Mock 服务器
+      if (window.location.search.includes('sapling-mock=1')) {
+        config.apiEndpoint = 'http://localhost:3000/chat/completions';
+        console.log('[Sapling] 测试模式: API 端点已切换到', config.apiEndpoint);
+      }
+
       applyThemeVariables(config.theme, DEFAULT_THEME, true); // contentScriptMode = true，避免污染网页
       tooltipManager.setConfig(config);
       textReplacer.setConfig(config);
@@ -429,7 +453,9 @@ async function addToMemorizeList(word) {
 
 // ============ DOM 处理（使用 content-segmenter 服务） ============
 
-function getPageSegments(viewportOnly = false, margin = 300) {
+function getPageSegments(viewportOnly = false) {
+  // margin 为视口高度的 30%，确保预加载足够的后续内容
+  const margin = Math.max(300, Math.round(window.innerHeight * 0.3));
   return contentSegmenter.getPageSegments(document.body, { viewportOnly, margin });
 }
 
@@ -470,8 +496,107 @@ function restoreAllMatchingOriginal(original) {
   return restored;
 }
 
+// ============ 语言队列管理 ============
+
+/**
+ * 将段落加入语言队列
+ * @returns {Promise|null} 如果触发了批量发送，返回 Promise
+ */
+function enqueueSegment(segment, langKey) {
+  // 首先检查是否已被处理或正在处理中
+  if (contentSegmenter.isProcessedOrPending(segment.fingerprint)) {
+    return null;
+  }
+
+  if (!langBatchQueue.has(langKey)) {
+    langBatchQueue.set(langKey, { segments: [], timer: null });
+  }
+
+  const queue = langBatchQueue.get(langKey);
+
+  // 检查队列中是否已存在（通过 fingerprint 去重）
+  if (queue.segments.some(s => s.fingerprint === segment.fingerprint)) {
+    return null;
+  }
+
+  queue.segments.push(segment);
+
+  // 清除旧的 debounce 定时器
+  if (queue.timer) {
+    clearTimeout(queue.timer);
+    queue.timer = null;
+  }
+
+  // 检查是否达到批量阈值
+  const batchSize = config?.maxBatchSize || DEFAULT_LANG_BATCH_SIZE;
+  if (queue.segments.length >= batchSize) {
+    return flushLangQueue(langKey);
+  } else {
+    // 设置 debounce 定时器
+    queue.timer = setTimeout(() => {
+      flushLangQueue(langKey);
+    }, LANG_DEBOUNCE_DELAY);
+    return null;
+  }
+}
+
+/**
+ * 发送指定语言队列中的所有段落
+ */
+async function flushLangQueue(langKey) {
+  const queue = langBatchQueue.get(langKey);
+  if (!queue || queue.segments.length === 0) return { count: 0, error: false };
+
+  // 取出所有段落并清空队列
+  const segments = queue.segments.splice(0);
+  if (queue.timer) {
+    clearTimeout(queue.timer);
+    queue.timer = null;
+  }
+
+  // 检查处理函数是否存在
+  if (!queueProcessBatchFn) {
+    return { count: 0, error: true };
+  }
+
+  // 检查 generation
+  if (queueRunGeneration !== processingGeneration) {
+    return { count: 0, error: false, aborted: true };
+  }
+
+  // 调用批量处理
+  const result = await queueProcessBatchFn(segments);
+  return result;
+}
+
+/**
+ * 发送所有语言队列（页面处理结束时调用）
+ */
+async function flushAllLangQueues() {
+  const promises = [];
+  for (const [langKey] of langBatchQueue) {
+    promises.push(flushLangQueue(langKey));
+  }
+  return Promise.all(promises);
+}
+
+/**
+ * 清空所有语言队列（页面重置时调用）
+ */
+function clearAllLangQueues() {
+  for (const [, queue] of langBatchQueue) {
+    if (queue.timer) {
+      clearTimeout(queue.timer);
+    }
+  }
+  langBatchQueue.clear();
+}
+
 function restoreAll() {
   processingGeneration++;
+  restoreGeneration++;  // 标记这是一次「还原」操作
+  isPageActivated = false;  // 重置激活状态
+  clearAllLangQueues();  // 清空语言队列
   document.querySelectorAll('.Sapling-processing').forEach(el => {
     el.classList.remove('Sapling-processing');
   });
@@ -486,6 +611,14 @@ async function translateText(text) {
   }
 
   return await apiService.translateText(text, config, wordCache, updateStats, scheduleWordCacheSave);
+}
+
+async function translateTexts(texts) {
+  if (wordCache.size === 0) {
+    await loadWordCache();
+  }
+
+  return await apiService.translateTexts(texts, config, wordCache, updateStats, scheduleWordCacheSave);
 }
 
 async function translateSpecificWords(targetWords) {
@@ -696,7 +829,7 @@ async function processPage(viewportOnly = false) {
     const segments = getPageSegments(viewportOnly);
     const whitelistWords = new Set((config.learnedWords || []).map(w => w.original.toLowerCase()));
 
-    // 预处理：过滤有效的 segments
+    // 预处理：过滤有效的 segments 并检测语言
     const validSegments = [];
     for (const segment of segments) {
       let text = segment.text;
@@ -705,120 +838,194 @@ async function processPage(viewportOnly = false) {
         text = text.replace(regex, '');
       }
       if (text.trim().length >= 30) {
-        validSegments.push({ ...segment, filteredText: text });
+        // 检测语言并计算 langKey
+        const sourceLang = await detectLanguage(text);
+        const langKey = `${sourceLang}:${config.nativeLanguage}`;
+        validSegments.push({ ...segment, filteredText: text, sourceLang, langKey });
       }
     }
 
-    const limitedSegments = validSegments;
+    // 批量处理参数
+    const MAX_CONCURRENT_BATCHES = normalizeConcurrencyLimit(config.concurrencyLimit);
 
-    // 并行处理单个 segment
-    const MAX_CONCURRENT = normalizeConcurrencyLimit(config.concurrencyLimit);
+    // 批量处理函数
+    async function processBatch(batchSegments) {
+      // 捕获当前的 restoreGeneration，用于区分「还原」和「滚动」
+      const runRestoreGen = restoreGeneration;
 
-    async function processSegment(segment) {
-      const el = segment.element;
+      // 标记所有段落为正在处理中
+      batchSegments.forEach(seg => contentSegmenter.markPending(seg.fingerprint));
+
+      const batchInput = batchSegments.map((segment, idx) => ({
+        text: segment.filteredText,
+        paragraphIndex: idx
+      }));
+
       try {
-        const result = await translateText(segment.filteredText);
+        const batchResult = await translateTexts(batchInput);
 
         if (runGeneration !== processingGeneration) {
-          el.classList.remove('Sapling-processing');
+          // 处理被中止，取消 pending 状态，允许重新处理
+          batchSegments.forEach(seg => {
+            contentSegmenter.unmarkPending(seg.fingerprint);
+            seg.element.classList.remove('Sapling-processing');
+          });
           return { count: 0, error: false, aborted: true };
         }
 
-        // 先应用缓存结果（立即显示）
-        let immediateCount = 0;
-        if (result.immediate?.length) {
-          const filtered = result.immediate.filter(r => !whitelistWords.has(r.original.toLowerCase()));
-          immediateCount = applyReplacements(el, filtered, { scope: segment.scope });
-          contentSegmenter.markProcessed(segment.fingerprint);
-        }
+        let totalCount = 0;
 
-        // 如果有异步结果，等待并更新
-        if (result.async) {
-          // 只有在没有立即替换结果时，才显示“处理中”高亮，避免缓存命中时出现长时间绿色背景。
-          if (immediateCount === 0) {
-            el.classList.add('Sapling-processing');
-          } else {
-            el.classList.remove('Sapling-processing');
+        // 处理每个段落的结果
+        for (const { paragraphIndex, immediate, async: asyncPromise } of batchResult.results) {
+          const segment = batchSegments[paragraphIndex];
+          if (!segment) continue;
+
+          const el = segment.element;
+
+          // 先应用缓存结果（立即显示）
+          let immediateCount = 0;
+          if (immediate?.length) {
+            const filtered = immediate.filter(r => !whitelistWords.has(r.original.toLowerCase()));
+            immediateCount = applyReplacements(el, filtered, { scope: segment.scope });
           }
 
-          result.async.then(async (asyncReplacements) => {
-            try {
-              if (runGeneration !== processingGeneration) return;
-              if (asyncReplacements?.length) {
-                // 获取已替换的词汇，避免重复
-                const alreadyReplaced = new Set();
-                el.querySelectorAll('.Sapling-translated').forEach(transEl => {
-                  const original = transEl.getAttribute('data-original');
-                  if (original) {
-                    alreadyReplaced.add(original.toLowerCase());
-                  }
-                });
+          totalCount += immediateCount;
 
-                const filtered = asyncReplacements.filter(r =>
-                  !whitelistWords.has(r.original.toLowerCase()) &&
-                  !alreadyReplaced.has(r.original.toLowerCase())
-                );
-
-                if (filtered.length > 0) {
-                  applyReplacements(el, filtered, { scope: segment.scope });
-                  contentSegmenter.markProcessed(segment.fingerprint);
-                }
-              }
-            } finally {
+          // 如果有异步结果，等待并更新
+          if (asyncPromise) {
+            // 只有在没有立即替换结果时，才显示"处理中"高亮
+            if (immediateCount === 0) {
+              el.classList.add('Sapling-processing');
+            } else {
               el.classList.remove('Sapling-processing');
             }
-          }).catch(error => {
-            console.error('[Sapling] Async translation error:', error);
-            el.classList.remove('Sapling-processing');
-            
-            // 显示错误提示（异步错误通常不需要立即提示，已在同步阶段处理）
-            // 但如果是严重错误，仍然提示
-            const isApiError = ['API_NOT_CONFIGURED', 'API_REQUEST_FAILED', 'NETWORK_ERROR', 
-                               'INVALID_API_KEY', 'FORBIDDEN', 'RATE_LIMIT', 'SERVER_ERROR'].includes(error.code);
-            
-            if (isApiError && !window.__saplingApiErrorShown) {
-              window.__saplingApiErrorShown = true;
-              showToast(`Sapling: ${error.message}`, { type: 'error', duration: 3000 });
-              setTimeout(() => {
-                window.__saplingApiErrorShown = false;
-              }, 5000);
-            }
-          });
-        } else {
-          el.classList.remove('Sapling-processing');
-        }
 
-        return { count: immediateCount, error: false };
-      } catch (e) {
-        console.error('[Sapling] Segment error:', e);
-        el.classList.remove('Sapling-processing');
-        
-        // 如果是 API 相关错误，显示友好的提示
-        const isApiError = ['API_NOT_CONFIGURED', 'API_REQUEST_FAILED', 'NETWORK_ERROR', 
-                           'INVALID_API_KEY', 'FORBIDDEN', 'RATE_LIMIT', 'SERVER_ERROR'].includes(e.code);
-        
-        if (isApiError) {
-          // 只显示一次错误提示，避免多个段落重复显示
-          if (!window.__saplingApiErrorShown) {
-            window.__saplingApiErrorShown = true;
-            showToast(`Sapling: ${e.message}`, { type: 'error', duration: 3000 });
-            // 5秒后重置标记，允许再次显示
-            setTimeout(() => {
-              window.__saplingApiErrorShown = false;
-            }, 5000);
+            asyncPromise.then(async (asyncReplacements) => {
+              try {
+                // 如果元素已被移除，标记为已处理
+                if (!el.isConnected) {
+                  contentSegmenter.markProcessed(segment.fingerprint);
+                  return;
+                }
+
+                // 如果是「还原」操作，丢弃结果并标记为已处理
+                if (runRestoreGen !== restoreGeneration) {
+                  contentSegmenter.markProcessed(segment.fingerprint);
+                  return;
+                }
+
+                if (asyncReplacements?.length) {
+                  // 获取已替换的词汇，避免重复
+                  const alreadyReplaced = new Set();
+                  el.querySelectorAll('.Sapling-translated').forEach(transEl => {
+                    const original = transEl.getAttribute('data-original');
+                    if (original) {
+                      alreadyReplaced.add(original.toLowerCase());
+                    }
+                  });
+
+                  const filtered = asyncReplacements.filter(r =>
+                    !whitelistWords.has(r.original.toLowerCase()) &&
+                    !alreadyReplaced.has(r.original.toLowerCase())
+                  );
+
+                  if (filtered.length > 0) {
+                    applyReplacements(el, filtered, { scope: segment.scope });
+                  }
+                }
+
+                // 处理完成：无论 generation 是否变化，工作已完成，标记为已处理
+                contentSegmenter.markProcessed(segment.fingerprint);
+              } finally {
+                el.classList.remove('Sapling-processing');
+              }
+            }).catch(error => {
+              // 出错时也标记为已处理，避免重复尝试
+              contentSegmenter.markProcessed(segment.fingerprint);
+              console.error('[Sapling] Async translation error:', error);
+              el.classList.remove('Sapling-processing');
+
+              // 显示错误提示
+              const isApiError = ['API_NOT_CONFIGURED', 'API_REQUEST_FAILED', 'NETWORK_ERROR',
+                                 'INVALID_API_KEY', 'FORBIDDEN', 'RATE_LIMIT', 'SERVER_ERROR'].includes(error.code);
+
+              if (isApiError && !window.__saplingApiErrorShown) {
+                window.__saplingApiErrorShown = true;
+                showToast(`Sapling: ${error.message}`, { type: 'error', duration: 3000 });
+                setTimeout(() => {
+                  window.__saplingApiErrorShown = false;
+                }, 5000);
+              }
+            });
+          } else {
+            // 没有异步结果（只有缓存或无结果），立即标记为已处理
+            contentSegmenter.markProcessed(segment.fingerprint);
+            el.classList.remove('Sapling-processing');
           }
         }
-        
+
+        return { count: totalCount, error: false };
+      } catch (e) {
+        console.error('[Sapling] Batch error:', e);
+        // 出错时也标记所有段落为已处理，避免重复尝试
+        batchSegments.forEach(seg => {
+          contentSegmenter.markProcessed(seg.fingerprint);
+          seg.element.classList.remove('Sapling-processing');
+        });
+
+        // 如果是 API 相关错误，显示友好的提示
+        const isApiError = ['API_NOT_CONFIGURED', 'API_REQUEST_FAILED', 'NETWORK_ERROR',
+                           'INVALID_API_KEY', 'FORBIDDEN', 'RATE_LIMIT', 'SERVER_ERROR'].includes(e.code);
+
+        if (isApiError && !window.__saplingApiErrorShown) {
+          window.__saplingApiErrorShown = true;
+          showToast(`Sapling: ${e.message}`, { type: 'error', duration: 3000 });
+          setTimeout(() => {
+            window.__saplingApiErrorShown = false;
+          }, 5000);
+        }
+
         return { count: 0, error: true };
       }
     }
 
-    // 分批并行处理
-    for (let i = 0; i < limitedSegments.length; i += MAX_CONCURRENT) {
-      if (runGeneration !== processingGeneration) break;
-      const batch = limitedSegments.slice(i, i + MAX_CONCURRENT);
-      const results = await Promise.all(batch.map(processSegment));
+    // 设置队列处理函数引用
+    queueProcessBatchFn = processBatch;
+    queueWhitelistWords = whitelistWords;
+    queueRunGeneration = runGeneration;
 
+    // 使用语言队列批量处理
+    const batchPromises = [];
+
+    for (const segment of validSegments) {
+      if (runGeneration !== processingGeneration) break;
+
+      // 将段落加入语言队列
+      const promise = enqueueSegment(segment, segment.langKey);
+      if (promise) {
+        batchPromises.push(promise);
+      }
+
+      // 控制并发：当累积的 Promise 达到并发上限时，等待它们完成
+      if (batchPromises.length >= MAX_CONCURRENT_BATCHES) {
+        const results = await Promise.all(batchPromises.splice(0));
+        for (const result of results) {
+          processed += result.count;
+          if (result.error) errors++;
+        }
+      }
+    }
+
+    // 发送所有剩余队列（无论 viewportOnly 与否，都统一 flush）
+    const finalResults = await flushAllLangQueues();
+    for (const result of finalResults) {
+      processed += result.count;
+      if (result.error) errors++;
+    }
+
+    // 等待剩余的 Promise
+    if (batchPromises.length > 0) {
+      const results = await Promise.all(batchPromises);
       for (const result of results) {
         processed += result.count;
         if (result.error) errors++;
@@ -828,6 +1035,7 @@ async function processPage(viewportOnly = false) {
     return { processed, errors };
   } finally {
     isProcessing = false;
+    clearAllLangQueues();  // 清理所有队列和定时器，防止跨调用污染
   }
 }
 
@@ -917,8 +1125,10 @@ function setupEventListeners() {
   // 滚动处理
   const handleScroll = debounce(() => {
     if (isHostnameBlacklisted(window.location.hostname, config.blacklistNormalized || config.blacklist)) return;
-    if (config?.autoProcess && config?.enabled) {
-      processPage(true);
+    // 当页面已激活（手动触发过）或开启了自动处理时，滚动继续处理
+    if ((isPageActivated || config?.autoProcess) && config?.enabled) {
+      const viewportOnly = !config.processFullPage;
+      processPage(viewportOnly);
     }
   }, 500);
   window.addEventListener('scroll', handleScroll, { passive: true });
@@ -938,10 +1148,11 @@ function setupEventListeners() {
         if (changes.enabled?.newValue === false) {
           restoreAll();
         }
-        if (changes.difficultyLevel || changes.intensity || changes.translationStyle) {
+        if (changes.difficultyLevel || changes.intensity || changes.translationStyle || changes.processFullPage) {
           restoreAll();
           if (config.enabled) {
-            processPage();
+            const viewportOnly = !config.processFullPage;
+            processPage(viewportOnly);
           }
         }
         if (changes.cacheMaxSize) {
@@ -991,7 +1202,9 @@ function setupEventListeners() {
          sendResponse({ processed: 0, blacklisted: true });
          return true;
       }
-      processPage().then(sendResponse);
+      isPageActivated = true;  // 激活页面处理，滚动时继续处理
+      const viewportOnly = !config.processFullPage;
+      processPage(viewportOnly).then(sendResponse);
       return true;
     }
     if (message.action === 'restorePage') {
@@ -1081,7 +1294,9 @@ async function init() {
   }, { capture: true });
 
   if (config.autoProcess && config.enabled && config.apiKey) {
-    setTimeout(() => processPage(), 1000);
+    isPageActivated = true;  // 自动处理时也激活状态
+    const viewportOnly = !config.processFullPage;
+    setTimeout(() => processPage(viewportOnly), 1000);
   }
 
   console.log('[Sapling] 初始化完成 (模块化重构版)');

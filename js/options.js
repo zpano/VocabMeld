@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const CACHE_MIN_SIZE_LIMIT = 2048;
   const DEFAULT_CONCURRENCY_LIMIT = 5;
   const CONCURRENCY_LIMIT_MAX = 20;
+  const DEFAULT_MAX_BATCH_SIZE = 3;
+  const MAX_BATCH_SIZE_MAX = 10;
   const DEFAULT_THEME = {
     brand: '#81C784',
     background: '#1B1612',
@@ -46,6 +48,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function normalizeConcurrencyLimit(value) {
     return normalizePositiveInt(value, DEFAULT_CONCURRENCY_LIMIT, { min: 1, max: CONCURRENCY_LIMIT_MAX });
+  }
+
+  function normalizeMaxBatchSize(value) {
+    return normalizePositiveInt(value, DEFAULT_MAX_BATCH_SIZE, { min: 1, max: MAX_BATCH_SIZE_MAX });
   }
 
   // 防抖保存函数
@@ -105,6 +111,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 高级设置
     concurrencyLimit: document.getElementById('concurrencyLimit'),
+    maxBatchSize: document.getElementById('maxBatchSize'),
+    processFullPage: document.getElementById('processFullPage'),
 
     // 站点规则
     blacklistInput: document.getElementById('blacklistInput'),
@@ -329,6 +337,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // 高级设置
       if (elements.concurrencyLimit) elements.concurrencyLimit.value = String(normalizeConcurrencyLimit(result.concurrencyLimit));
+      if (elements.maxBatchSize) elements.maxBatchSize.value = String(normalizeMaxBatchSize(result.maxBatchSize));
+      if (elements.processFullPage) elements.processFullPage.checked = result.processFullPage ?? false;
 
       // 缓存容量
       const cacheMaxSize = normalizeCacheMaxSize(result.cacheMaxSize);
@@ -582,6 +592,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const normalizedConcurrencyLimit = normalizeConcurrencyLimit(elements.concurrencyLimit?.value);
     if (elements.concurrencyLimit) elements.concurrencyLimit.value = String(normalizedConcurrencyLimit);
 
+    const normalizedMaxBatchSize = normalizeMaxBatchSize(elements.maxBatchSize?.value);
+    if (elements.maxBatchSize) elements.maxBatchSize.value = String(normalizedMaxBatchSize);
+
     return {
       apiEndpoint: elements.apiEndpoint.value.trim(),
       apiKey: elements.apiKey.value.trim(),
@@ -601,7 +614,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       blacklist: elements.blacklistInput.value.split('\n').map(s => s.trim()).filter(s => s),
       whitelist: elements.whitelistInput.value.split('\n').map(s => s.trim()).filter(s => s),
       cacheMaxSize: normalizedCacheMaxSize,
-      concurrencyLimit: normalizedConcurrencyLimit
+      concurrencyLimit: normalizedConcurrencyLimit,
+      maxBatchSize: normalizedMaxBatchSize,
+      processFullPage: elements.processFullPage?.checked ?? false
     };
   }
 
@@ -702,7 +717,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     const numberInputs = [
-      elements.concurrencyLimit
+      elements.concurrencyLimit,
+      elements.maxBatchSize
     ].filter(Boolean);
 
     numberInputs.forEach(input => {
@@ -729,7 +745,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       elements.autoProcess,
       elements.showPhonetic,
       elements.allowLeftClickPronunciation,
-      elements.restoreAllSameWordsOnLearned
+      elements.restoreAllSameWordsOnLearned,
+      elements.processFullPage
     ];
 
     checkboxes.forEach(checkbox => {

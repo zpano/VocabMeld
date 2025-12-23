@@ -380,8 +380,27 @@
 
         <div class="form-group">
           <label for="concurrencyLimit">并发限制</label>
-          <p class="help-text">同时处理的段落数量上限（也会影响 API 请求并发）。默认：3</p>
+          <p class="help-text">同时请求 API 的并发数。默认：3</p>
           <input type="number" id="concurrencyLimit" min="1" max="20" step="1" value="3">
+        </div>
+
+        <div class="form-group">
+          <label for="maxBatchSize">每次请求最大段落数</label>
+          <p class="help-text">每次 API 请求中包含的段落数量。默认：3</p>
+          <input type="number" id="maxBatchSize" min="1" max="10" step="1" value="3">
+        </div>
+
+        <div class="toggle-group">
+          <div class="toggle-item">
+            <div class="toggle-info">
+              <span class="toggle-title">处理完整页面</span>
+              <span class="toggle-desc">关闭时只处理可见区域及缓冲区（30%后续内容），开启时处理整个页面</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="processFullPage">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
 
       </section>
