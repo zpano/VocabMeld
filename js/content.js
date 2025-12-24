@@ -1,5 +1,6 @@
 import { CEFR_LEVELS, INTENSITY_CONFIG, SKIP_TAGS, SKIP_CLASSES } from './config/constants.js';
 import { CACHE_CONFIG, DEFAULT_THEME, normalizeCacheMaxSize, normalizeConcurrencyLimit, normalizeMaxBatchSize } from './core/config.js';
+import { storage } from './core/storage/StorageService.js';
 import { initLanguageDetector, detectLanguage } from './utils/language-detector.js';
 import { isDifficultyCompatible, isCodeText, isNonLearningWord } from './utils/word-filters.js';
 import { isInAllowedContentEditableRegion } from './utils/dom-utils.js';
@@ -114,15 +115,31 @@ async function loadConfig() {
     }
 
     try {
-      chrome.storage.sync.get(null, (result) => {
-        const lastError = chrome?.runtime?.lastError;
-        if (lastError) {
-          if (!isContextInvalidated(lastError)) {
-            console.warn('[Sapling] Config read failed:', lastError);
+      // 从 sync 获取配置
+      storage.remote.get(null, (syncResult) => {
+        const syncError = chrome?.runtime?.lastError;
+        if (syncError) {
+          if (!isContextInvalidated(syncError)) {
+            console.warn('[Sapling] Config read failed:', syncError);
           }
           return applyConfig(config || {});
         }
-        applyConfig(result);
+
+        // 从 local 获取词汇列表（避免 sync 配额限制）
+        storage.local.get(['learnedWords', 'memorizeList'], (localResult) => {
+          const localError = chrome?.runtime?.lastError;
+          if (localError && !isContextInvalidated(localError)) {
+            console.warn('[Sapling] Local storage read failed:', localError);
+          }
+
+          // 合并配置和词汇列表
+          const mergedResult = {
+            ...syncResult,
+            learnedWords: localResult?.learnedWords || [],
+            memorizeList: localResult?.memorizeList || []
+          };
+          applyConfig(mergedResult);
+        });
       });
     } catch (error) {
       if (!isContextInvalidated(error)) {
@@ -140,7 +157,7 @@ async function loadWordCache() {
     }
 
     try {
-      chrome.storage.local.get(WORD_CACHE_STORAGE_KEY, (result) => {
+      storage.local.get(WORD_CACHE_STORAGE_KEY, (result) => {
         const lastError = chrome?.runtime?.lastError;
         if (lastError) {
           if (!isContextInvalidated(lastError)) {
@@ -184,7 +201,7 @@ async function saveWordCache() {
     if (!globalThis.chrome?.storage?.local?.set) return resolve();
 
     try {
-      chrome.storage.local.set({ [WORD_CACHE_STORAGE_KEY]: data }, () => {
+      storage.local.set({ [WORD_CACHE_STORAGE_KEY]: data }, () => {
         const lastError = chrome?.runtime?.lastError;
         if (lastError) {
           if (isContextInvalidated(lastError)) {
@@ -217,7 +234,7 @@ function removeWordCacheFromStorage() {
   return new Promise((resolve) => {
     if (!globalThis.chrome?.storage?.local?.remove) return resolve();
     try {
-      chrome.storage.local.remove(WORD_CACHE_STORAGE_KEY, () => resolve());
+      storage.local.remove(WORD_CACHE_STORAGE_KEY, () => resolve());
     } catch (error) {
       if (!isContextInvalidated(error)) {
         console.warn('[Sapling] Cache remove threw:', error);
@@ -293,7 +310,7 @@ async function updateStats(stats) {
     }
 
     try {
-      chrome.storage.sync.get(['totalWords', 'todayWords', 'lastResetDate', 'cacheHits', 'cacheMisses'], (current) => {
+      storage.remote.get(['totalWords', 'todayWords', 'lastResetDate', 'cacheHits', 'cacheMisses'], (current) => {
         const readError = chrome?.runtime?.lastError;
         if (readError) {
           if (!isContextInvalidated(readError)) {
@@ -317,7 +334,7 @@ async function updateStats(stats) {
         };
 
         try {
-          chrome.storage.sync.set(updated, () => {
+          storage.remote.set(updated, () => {
             const writeError = chrome?.runtime?.lastError;
             if (writeError) {
               if (!isContextInvalidated(writeError)) {
@@ -358,12 +375,12 @@ async function addToWhitelist(original, translation, difficulty) {
     });
     config.learnedWords = whitelist;
     await new Promise((resolve) => {
-      if (!globalThis.chrome?.storage?.sync?.set) return resolve();
+      // 使用 local 存储避免 sync 配额限制
+      if (!globalThis.chrome?.storage?.local?.set) return resolve();
       try {
-        chrome.storage.sync.set({ learnedWords: whitelist }, () => resolve());
+        storage.local.set({ learnedWords: whitelist }, () => resolve());
       } catch (error) {
         if (!isContextInvalidated(error)) {
-          console.warn('[Sapling] Whitelist save threw:', error);
           console.warn('[Sapling] Whitelist save threw:', error);
         }
         resolve();
@@ -374,7 +391,6 @@ async function addToWhitelist(original, translation, difficulty) {
 
 async function addToMemorizeList(word) {
   if (!word || !word.trim()) {
-    console.warn('[Sapling] Invalid word for memorize list:', word);
     console.warn('[Sapling] Invalid word for memorize list:', word);
     return;
   }
@@ -387,12 +403,12 @@ async function addToMemorizeList(word) {
     list.push({ word: trimmedWord, addedAt: Date.now() });
     config.memorizeList = list;
     await new Promise((resolve) => {
-      if (!globalThis.chrome?.storage?.sync?.set) return resolve();
+      // 使用 local 存储避免 sync 配额限制
+      if (!globalThis.chrome?.storage?.local?.set) return resolve();
       try {
-        chrome.storage.sync.set({ memorizeList: list }, () => resolve());
+        storage.local.set({ memorizeList: list }, () => resolve());
       } catch (error) {
         if (!isContextInvalidated(error)) {
-          console.warn('[Sapling] Memorize list save threw:', error);
           console.warn('[Sapling] Memorize list save threw:', error);
         }
         resolve();
@@ -1134,7 +1150,7 @@ function setupEventListeners() {
   window.addEventListener('scroll', handleScroll, { passive: true });
 
   // 监听配置变化
-  chrome.storage.onChanged.addListener((changes, areaName) => {
+  storage.addChangeListener((changes, areaName) => {
     if (areaName === 'sync') {
       loadConfig().then(async () => {
         // 检查是否在黑名单中（动态变更）

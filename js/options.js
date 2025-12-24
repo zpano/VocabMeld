@@ -3,6 +3,7 @@
  */
 
 import { normalizeHexColor, applyThemeVariables } from './utils/color-utils.js';
+import { storage } from './core/storage/StorageService.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   // API 预设
@@ -293,65 +294,76 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 加载配置
   async function loadSettings() {
-    chrome.storage.sync.get(null, (result) => {
+    // 从 sync 获取配置，从 local 获取词汇列表
+    storage.remote.get(null, (syncResult) => {
       // API 配置
-      elements.apiEndpoint.value = result.apiEndpoint || API_PRESETS.deepseek.endpoint;
-      elements.apiKey.value = result.apiKey || '';
-      elements.modelName.value = result.modelName || API_PRESETS.deepseek.model;
-      
+      elements.apiEndpoint.value = syncResult.apiEndpoint || API_PRESETS.deepseek.endpoint;
+      elements.apiKey.value = syncResult.apiKey || '';
+      elements.modelName.value = syncResult.modelName || API_PRESETS.deepseek.model;
+
       // 学习偏好
-      elements.nativeLanguage.value = result.nativeLanguage || 'zh-CN';
-      elements.targetLanguage.value = result.targetLanguage || 'en';
-      
-      const diffIdx = CEFR_LEVELS.indexOf(result.difficultyLevel || 'B1');
+      elements.nativeLanguage.value = syncResult.nativeLanguage || 'zh-CN';
+      elements.targetLanguage.value = syncResult.targetLanguage || 'en';
+
+      const diffIdx = CEFR_LEVELS.indexOf(syncResult.difficultyLevel || 'B1');
       elements.difficultyLevel.value = diffIdx >= 0 ? diffIdx : 2;
       updateDifficultyLabel();
-      
-      const intensity = result.intensity || 'medium';
+
+      const intensity = syncResult.intensity || 'medium';
       elements.intensityRadios.forEach(radio => {
         radio.checked = radio.value === intensity;
       });
-      
+
       // 行为设置
-      elements.autoProcess.checked = result.autoProcess ?? false;
-      elements.showPhonetic.checked = result.showPhonetic ?? true;
-      elements.allowLeftClickPronunciation.checked = result.allowLeftClickPronunciation ?? true;
-      elements.restoreAllSameWordsOnLearned.checked = result.restoreAllSameWordsOnLearned ?? true;
-      elements.pronunciationProvider.value = result.pronunciationProvider || 'wiktionary';
-      elements.youdaoPronunciationType.value = String(result.youdaoPronunciationType ?? 2);
+      elements.autoProcess.checked = syncResult.autoProcess ?? false;
+      elements.showPhonetic.checked = syncResult.showPhonetic ?? true;
+      elements.allowLeftClickPronunciation.checked = syncResult.allowLeftClickPronunciation ?? true;
+      elements.restoreAllSameWordsOnLearned.checked = syncResult.restoreAllSameWordsOnLearned ?? true;
+      elements.pronunciationProvider.value = syncResult.pronunciationProvider || 'wiktionary';
+      elements.youdaoPronunciationType.value = String(syncResult.youdaoPronunciationType ?? 2);
       updatePronunciationSettingsVisibility();
-      
-      const translationStyle = result.translationStyle || 'original-translation';
+
+      const translationStyle = syncResult.translationStyle || 'original-translation';
       elements.translationStyleRadios.forEach(radio => {
         radio.checked = radio.value === translationStyle;
       });
 
       // 主题设置
-      const theme = { ...DEFAULT_THEME, ...(result.theme || {}) };
+      const theme = { ...DEFAULT_THEME, ...(syncResult.theme || {}) };
       setThemeInputs(theme);
       applyThemeVariables(theme, DEFAULT_THEME);
-      
+
       // 站点规则
-      elements.blacklistInput.value = (result.blacklist || []).join('\n');
-      elements.whitelistInput.value = (result.whitelist || []).join('\n');
+      elements.blacklistInput.value = (syncResult.blacklist || []).join('\n');
+      elements.whitelistInput.value = (syncResult.whitelist || []).join('\n');
 
       // 高级设置
-      if (elements.concurrencyLimit) elements.concurrencyLimit.value = String(normalizeConcurrencyLimit(result.concurrencyLimit));
-      if (elements.maxBatchSize) elements.maxBatchSize.value = String(normalizeMaxBatchSize(result.maxBatchSize));
-      if (elements.processFullPage) elements.processFullPage.checked = result.processFullPage ?? false;
+      if (elements.concurrencyLimit) elements.concurrencyLimit.value = String(normalizeConcurrencyLimit(syncResult.concurrencyLimit));
+      if (elements.maxBatchSize) elements.maxBatchSize.value = String(normalizeMaxBatchSize(syncResult.maxBatchSize));
+      if (elements.processFullPage) elements.processFullPage.checked = syncResult.processFullPage ?? false;
 
       // 缓存容量
-      const cacheMaxSize = normalizeCacheMaxSize(result.cacheMaxSize);
+      const cacheMaxSize = normalizeCacheMaxSize(syncResult.cacheMaxSize);
       lastCacheMaxSize = cacheMaxSize;
       setCacheMaxSizeUI(cacheMaxSize);
 
-      // 加载词汇列表
-      loadWordLists(result);
-      
-      // 加载统计
-      loadStats(result);
+      // 从 local 获取词汇列表（避免 sync 配额限制）
+      storage.local.get(['learnedWords', 'memorizeList'], (localResult) => {
+        // 合并 sync 和 local 数据供后续使用
+        const mergedResult = {
+          ...syncResult,
+          learnedWords: localResult.learnedWords || [],
+          memorizeList: localResult.memorizeList || []
+        };
 
-      lastSavedSettingsJson = JSON.stringify(collectSettingsFromUI());
+        // 加载词汇列表
+        loadWordLists(mergedResult);
+
+        // 加载统计
+        loadStats(mergedResult);
+
+        lastSavedSettingsJson = JSON.stringify(collectSettingsFromUI());
+      });
     });
   }
 
@@ -398,7 +410,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     filterMemorizeWords();
     
     // 加载缓存
-    chrome.storage.local.get('Sapling_word_cache', (data) => {
+    storage.local.get('Sapling_word_cache', (data) => {
       const cache = data.Sapling_word_cache || [];
       lastKnownCacheSize = Array.isArray(cache) ? cache.length : 0;
       elements.cachedTabCount.textContent = cache.length;
@@ -533,17 +545,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${date.getMonth() + 1}/${date.getDate()}`;
   }
 
-  // 删除词汇
+  // 删除词汇（使用 local 存储）
   async function removeWord(word, type) {
     if (type === 'learned') {
-      chrome.storage.sync.get('learnedWords', (result) => {
+      storage.local.get('learnedWords', (result) => {
         const list = (result.learnedWords || []).filter(w => w.original !== word);
-        chrome.storage.sync.set({ learnedWords: list }, loadSettings);
+        storage.local.set({ learnedWords: list }, loadSettings);
       });
     } else if (type === 'memorize') {
-      chrome.storage.sync.get('memorizeList', (result) => {
+      storage.local.get('memorizeList', (result) => {
         const list = (result.memorizeList || []).filter(w => w.word !== word);
-        chrome.storage.sync.set({ memorizeList: list }, loadSettings);
+        storage.local.set({ memorizeList: list }, loadSettings);
       });
     }
   }
@@ -551,11 +563,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function trimLocalCacheToMaxSize(maxSize) {
     const normalized = normalizeCacheMaxSize(maxSize);
     return new Promise((resolve) => {
-      chrome.storage.local.get('Sapling_word_cache', (data) => {
+      storage.local.get('Sapling_word_cache', (data) => {
         const cache = data.Sapling_word_cache || [];
         if (!Array.isArray(cache) || cache.length <= normalized) return resolve(false);
         const trimmed = cache.slice(-normalized);
-        chrome.storage.local.set({ Sapling_word_cache: trimmed }, () => resolve(true));
+        storage.local.set({ Sapling_word_cache: trimmed }, () => resolve(true));
       });
     });
   }
@@ -569,14 +581,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.statTodayWords.textContent = result.todayWords || 0;
     elements.statLearnedWords.textContent = (result.learnedWords || []).length;
     elements.statMemorizeWords.textContent = (result.memorizeList || []).length;
-    
+
     const hits = result.cacheHits || 0;
     const misses = result.cacheMisses || 0;
     const total = hits + misses;
     const hitRate = total > 0 ? Math.round((hits / total) * 100) : 0;
     elements.statHitRate.textContent = hitRate + '%';
-    
-    chrome.storage.local.get('Sapling_word_cache', (data) => {
+
+    storage.local.get('Sapling_word_cache', (data) => {
       const cacheSize = (data.Sapling_word_cache || []).length;
       lastKnownCacheSize = cacheSize;
       renderCacheStatus(cacheSize, cacheMaxSize);
@@ -649,7 +661,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-      await chrome.storage.sync.set(settings);
+      await storage.remote.setAsync(settings);
       console.log(`[Sapling] Settings saved (${source})`);
       lastSavedSettingsJson = settingsJson;
 
@@ -864,7 +876,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (elements.retestVocabBtn) {
       elements.retestVocabBtn.addEventListener('click', () => {
         // 清除测试完成标记，允许重新测试
-        chrome.storage.sync.set({ vocabTestCompleted: false }, () => {
+        storage.remote.set({ vocabTestCompleted: false }, () => {
           // 打开词汇量测试页面
           chrome.tabs.create({
             url: chrome.runtime.getURL('vocab-test.html')
@@ -982,7 +994,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 统计重置
     elements.resetTodayBtn.addEventListener('click', () => {
-      chrome.storage.sync.set({ todayWords: 0 }, () => {
+      storage.remote.set({ todayWords: 0 }, () => {
         loadSettings();
         debouncedSave(200);
       });
@@ -990,15 +1002,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     elements.resetAllBtn.addEventListener('click', () => {
       if (confirm('确定要重置所有数据吗？这将清空所有统计和词汇列表。')) {
-        chrome.storage.sync.set({
+        storage.remote.set({
           totalWords: 0,
           todayWords: 0,
           cacheHits: 0,
           cacheMisses: 0,
           learnedWords: [],
           memorizeList: []
-        });
-        chrome.storage.local.remove('Sapling_word_cache', () => {
+        }, () => {});
+        storage.local.remove('Sapling_word_cache', () => {
           loadSettings();
           debouncedSave(200);
         });

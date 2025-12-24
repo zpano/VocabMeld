@@ -1,98 +1,68 @@
 /**
- * Sapling 存储服务模块
- * 封装 Chrome Storage API，提供统一的存储接口
+ * Sapling Storage Service
+ * 高级存储门面，提供领域特定方法
  */
 
-import { DEFAULT_CONFIG } from './config.js';
+import { DEFAULT_CONFIG } from '../config.js';
+import { ChromeStorageAdapter } from './ChromeStorageAdapter.js';
+import { StorageNamespace } from './StorageNamespace.js';
 
 /**
  * 存储服务类
  */
 class StorageService {
   constructor() {
-    this.cache = null;
-    this.listeners = new Map();
+    // 创建存储命名空间
+    const remoteAdapter = new ChromeStorageAdapter('sync');
+    const localAdapter = new ChromeStorageAdapter('local');
+
+    this.remote = new StorageNamespace(remoteAdapter, true, DEFAULT_CONFIG);
+    this.local = new StorageNamespace(localAdapter, false, null);
   }
 
   /**
-   * 获取配置值
-   * @param {string|string[]|null} keys - 要获取的键，null 则获取所有
+   * 获取配置值（向后兼容）
+   * @param {string|string[]|null} keys - 要获取的键
    * @returns {Promise<object>}
    */
   async get(keys = null) {
-    return new Promise((resolve) => {
-      chrome.storage.sync.get(keys, (result) => {
-        if (keys === null) {
-          resolve({ ...DEFAULT_CONFIG, ...result });
-        } else if (typeof keys === 'string') {
-          resolve({ [keys]: result[keys] ?? DEFAULT_CONFIG[keys] });
-        } else {
-          const merged = {};
-          keys.forEach(key => {
-            merged[key] = result[key] ?? DEFAULT_CONFIG[key];
-          });
-          resolve(merged);
-        }
-      });
-    });
+    return this.remote.getAsync(keys);
   }
 
   /**
-   * 设置配置值
-   * @param {object} items - 要设置的键值对
+   * 设置配置值（向后兼容）
+   * @param {object} items - 键值对
    * @returns {Promise<void>}
    */
   async set(items) {
-    return new Promise((resolve, reject) => {
-      chrome.storage.sync.set(items, () => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve();
-        }
-      });
-    });
+    return this.remote.setAsync(items);
   }
 
   /**
-   * 从本地存储获取数据（用于大量数据如缓存）
-   * @param {string|string[]|null} keys
+   * 从本地存储获取数据（向后兼容）
+   * @param {string|string[]|null} keys - 要获取的键
    * @returns {Promise<object>}
    */
   async getLocal(keys = null) {
-    return new Promise((resolve) => {
-      chrome.storage.local.get(keys, (result) => {
-        resolve(result);
-      });
-    });
+    return this.local.getAsync(keys);
   }
 
   /**
-   * 设置本地存储数据
-   * @param {object} items
+   * 设置本地存储数据（向后兼容）
+   * @param {object} items - 键值对
    * @returns {Promise<void>}
    */
   async setLocal(items) {
-    return new Promise((resolve, reject) => {
-      chrome.storage.local.set(items, () => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve();
-        }
-      });
-    });
+    return this.local.setAsync(items);
   }
 
   /**
-   * 清除本地存储
-   * @param {string|string[]} keys
+   * 从本地存储删除数据（向后兼容）
+   * @param {string|string[]} keys - 要删除的键
    * @returns {Promise<void>}
    */
   async removeLocal(keys) {
-    return new Promise((resolve) => {
-      chrome.storage.local.remove(keys, resolve);
-    });
+    return this.local.removeAsync(keys);
   }
 
   /**
@@ -106,12 +76,12 @@ class StorageService {
   /**
    * 更新统计数据
    * @param {object} stats - 统计数据更新
-   * @returns {Promise<void>}
+   * @returns {Promise<object>}
    */
   async updateStats(stats) {
     const current = await this.get(['totalWords', 'todayWords', 'lastResetDate', 'cacheHits', 'cacheMisses']);
     const today = new Date().toISOString().split('T')[0];
-    
+
     // 检查是否需要重置今日统计
     if (current.lastResetDate !== today) {
       current.todayWords = 0;
@@ -135,7 +105,7 @@ class StorageService {
    * @returns {Promise<Array>}
    */
   async getWhitelist() {
-    const result = await this.get('learnedWords');
+    const result = await this.getLocal('learnedWords');
     return result.learnedWords || [];
   }
 
@@ -153,7 +123,7 @@ class StorageService {
         word: word.word,
         addedAt: Date.now()
       });
-      await this.set({ learnedWords: whitelist });
+      await this.setLocal({ learnedWords: whitelist });
     }
   }
 
@@ -165,7 +135,7 @@ class StorageService {
   async removeFromWhitelist(word) {
     const whitelist = await this.getWhitelist();
     const filtered = whitelist.filter(w => w.original !== word && w.word !== word);
-    await this.set({ learnedWords: filtered });
+    await this.setLocal({ learnedWords: filtered });
   }
 
   /**
@@ -173,7 +143,7 @@ class StorageService {
    * @returns {Promise<Array>}
    */
   async getMemorizeList() {
-    const result = await this.get('memorizeList');
+    const result = await this.getLocal('memorizeList');
     return result.memorizeList || [];
   }
 
@@ -190,7 +160,7 @@ class StorageService {
         word: word,
         addedAt: Date.now()
       });
-      await this.set({ memorizeList: list });
+      await this.setLocal({ memorizeList: list });
     }
   }
 
@@ -202,7 +172,7 @@ class StorageService {
   async removeFromMemorizeList(word) {
     const list = await this.getMemorizeList();
     const filtered = list.filter(w => w.word !== word);
-    await this.set({ memorizeList: filtered });
+    await this.setLocal({ memorizeList: filtered });
   }
 
   /**
@@ -226,7 +196,7 @@ class StorageService {
   }
 
   /**
-   * 添加存储变化监听器
+   * 添加存储变化监听器（向后兼容）
    * @param {function} callback - 回调函数
    * @returns {function} - 取消监听的函数
    */
@@ -244,4 +214,3 @@ class StorageService {
 // 导出单例
 export const storage = new StorageService();
 export default storage;
-

@@ -43,7 +43,11 @@ Services Layer (js/services/)
 
 Core Modules (js/core/)
     ├── config.js           - Default configuration values
-    └── storage.js          - Chrome Storage API wrapper
+    └── storage/            - Storage abstraction layer 
+        ├── IStorageAdapter.js      - Storage adapter interface
+        ├── ChromeStorageAdapter.js - Chrome Storage implementation
+        ├── StorageNamespace.js     - Storage namespace (callback + Promise APIs)
+        └── StorageService.js       - Storage service facade (high-level methods)
 
 Config (js/config/)
     └── constants.js        - CEFR levels, intensity settings, skip tags/classes
@@ -79,7 +83,9 @@ Styles (css/)
 
 - **Chrome Extension APIs**: storage (sync + local), contextMenus, activeTab, scripting, tts
 - **ES6 Modules**: Content script uses native ES modules with import/export
-- **Storage**: `chrome.storage.sync` for config, `chrome.storage.local` for word cache
+- **Storage Architecture**: Layered abstraction (IStorageAdapter → ChromeStorageAdapter → StorageNamespace → StorageService)
+  - `storage.remote` (Chrome Storage Sync): Config data with DEFAULT_CONFIG merging, cross-device sync
+  - `storage.local` (Chrome Storage Local): Large data (word cache, learned words, memorize list)
 - **Message passing**: Background ↔ Content script via `chrome.runtime.sendMessage()`
 - **Pronunciation audio**: Can play audio via Wiktionary, Youdao (`https://dict.youdao.com/dictvoice?audio={word}&type={1/2}`; English only), or Google Translate TTS (`https://translate.google.com/translate_tts?ie=UTF-8&q={text}&tl={lang}&client=tw-ob`), routed through an offscreen document to bypass page CSP (Wiktionary File: links are converted to `Special:FilePath` without extra API lookups)
 - **Chinese segmentation**: Uses segmentit library for Chinese word boundary detection
@@ -109,6 +115,29 @@ Styles (css/)
 
 Uses Chrome Extension i18n API. Messages in `/_locales/{locale}/messages.json`. Default locale: zh_CN.
 
+## Storage Architecture Deep Dive
+
+The storage system uses a 4-layer architecture for flexibility and future extensibility:
+
+### Layer 1: IStorageAdapter (Interface)
+- Abstract interface defining storage operations: `get()`, `set()`, `remove()`, `onChanged()`
+- Enables swapping backends (Chrome Storage → WebDAV → any storage system)
+
+### Layer 2: ChromeStorageAdapter (Implementation)
+- Concrete implementation wrapping `chrome.storage.sync` and `chrome.storage.local`
+- Filters change events by storage area
+- Provides `onChanged()` that returns unsubscribe function
+
+### Layer 3: StorageNamespace (Low-level API)
+- Provides both callback-style and Promise-style APIs (`get/getAsync`, `set/setAsync`, etc.)
+- Handles DEFAULT_CONFIG merging for remote storage (keeps defaults in code, not storage)
+- One namespace per storage area: `storage.remote` (sync), `storage.local` (local)
+
+### Layer 4: StorageService (High-level Facade)
+- Domain-specific methods: `getWhitelist()`, `addToWhitelist()`, `updateStats()`, etc.
+- Backward-compatible methods: `get()`, `set()`, `getLocal()`, `setLocal()`, `removeLocal()`
+- Exported as singleton: `export const storage = new StorageService()`
+
 ## Key Files for Common Tasks
 
 | Task | Files |
@@ -117,7 +146,8 @@ Uses Chrome Extension i18n API. Messages in `/_locales/{locale}/messages.json`. 
 | Change DOM processing | `js/services/content-segmenter.js`, `js/services/text-replacer.js` |
 | Update tooltip behavior | `js/ui/tooltip.js`, `css/content.css` |
 | Modify word filtering | `js/utils/word-filters.js`, `js/config/constants.js` |
-| Change storage behavior | `js/core/storage.js`, `js/services/cache-service.js` |
+| Change storage behavior | `js/core/storage/StorageService.js`, `js/core/storage/ChromeStorageAdapter.js` |
+| Add new storage backend | Create new adapter implementing `js/core/storage/IStorageAdapter.js` |
 | Update popup/options UI | `js/popup.js`, `js/options.js`, corresponding HTML/CSS |
 
 # User Custom Rules

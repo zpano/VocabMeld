@@ -3,6 +3,8 @@
  * 提取自 content.js
  */
 
+import { storage } from '../core/storage/StorageService.js';
+
 // 词典缓存
 const dictionaryCache = new Map();
 
@@ -31,7 +33,7 @@ async function ensurePersistentCacheLoaded() {
   if (persistentCacheInitPromise) return persistentCacheInitPromise;
 
   persistentCacheInitPromise = new Promise((resolve) => {
-    chrome.storage.local.get(PERSISTENT_CACHE_STORAGE_KEY, (result) => {
+    storage.local.get(PERSISTENT_CACHE_STORAGE_KEY, (result) => {
       const raw = result?.[PERSISTENT_CACHE_STORAGE_KEY];
       const map = new Map();
 
@@ -68,7 +70,7 @@ function schedulePersistPersistentCache() {
       for (const [key, meta] of persistentCache) {
         data.push({ key, value: meta?.value ?? null, cachedAt: Number(meta?.cachedAt) || 0 });
       }
-      chrome.storage.local.set({ [PERSISTENT_CACHE_STORAGE_KEY]: data }, () => {});
+      storage.local.set({ [PERSISTENT_CACHE_STORAGE_KEY]: data }, () => {});
     } catch {
       // ignore
     }

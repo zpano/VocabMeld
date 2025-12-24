@@ -4,7 +4,7 @@
  */
 
 import { CACHE_CONFIG, normalizeCacheMaxSize } from '../core/config.js';
-import { storage } from '../core/storage.js';
+import { storage } from '../core/storage/StorageService.js';
 
 /**
  * 词汇缓存服务类
@@ -17,8 +17,7 @@ class CacheService {
     this.initPromise = null;
 
     try {
-      chrome.storage?.onChanged?.addListener((changes, area) => {
-        if (area !== 'sync') return;
+      storage.remote.onChanged((changes) => {
         if (!changes.cacheMaxSize) return;
         this.setMaxSize(changes.cacheMaxSize.newValue);
         void this.persist();

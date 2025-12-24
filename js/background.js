@@ -4,6 +4,7 @@
  */
 
 import { CACHE_CONFIG, DEFAULT_THEME, normalizeCacheMaxSize } from './core/config.js';
+import { storage } from './core/storage/StorageService.js';
 
 async function ensureOffscreenDocument() {
   if (!chrome.offscreen?.createDocument) return false;
@@ -42,12 +43,13 @@ const MENU_ID_ADD_MEMORIZE = 'Sapling-add-memorize';
 const MENU_ID_TOGGLE_PAGE = 'Sapling-process-page';
 
 // 安装/更新时初始化
-chrome.runtime.onInstalled.addListener((details) => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('[Sapling] Extension installed/updated:', details.reason);
-  
+
   // 设置默认配置
   if (details.reason === 'install') {
-    chrome.storage.sync.set({
+    // sync 存储：配置项（避免存储大数组以防超过 100KB 配额）
+    storage.remote.set({
       apiEndpoint: 'https://api.deepseek.com/chat/completions',
       apiKey: '',
       modelName: 'deepseek-chat',
@@ -65,8 +67,6 @@ chrome.runtime.onInstalled.addListener((details) => {
       enabled: true,
       blacklist: [],
       whitelist: [],
-      learnedWords: [],
-      memorizeList: [],
       cacheMaxSize: CACHE_CONFIG.maxSize,
       theme: { ...DEFAULT_THEME },
       totalWords: 0,
@@ -75,18 +75,24 @@ chrome.runtime.onInstalled.addListener((details) => {
       cacheHits: 0,
       cacheMisses: 0,
       vocabTestCompleted: false
-    });
-    
+    }, () => {});
+
+    // local 存储：词汇列表（可能很大，避免 sync 配额限制）
+    storage.local.set({
+      learnedWords: [],
+      memorizeList: []
+    }, () => {});
+
     // 打开词汇量测试页面
     chrome.tabs.create({
       url: chrome.runtime.getURL('vocab-test.html')
     });
   } else {
-    chrome.storage.sync.get('cacheMaxSize', (result) => {
-      if (result.cacheMaxSize == null) chrome.storage.sync.set({ cacheMaxSize: CACHE_CONFIG.maxSize });
+    storage.remote.get('cacheMaxSize', (result) => {
+      if (result.cacheMaxSize == null) storage.remote.set({ cacheMaxSize: CACHE_CONFIG.maxSize }, () => {});
     });
   }
-  
+
   // 创建右键菜单
   createContextMenus();
 });
@@ -174,15 +180,16 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === MENU_ID_ADD_MEMORIZE && info.selectionText) {
     const word = info.selectionText.trim();
     if (word && word.length < 50) {
-      chrome.storage.sync.get('memorizeList', (result) => {
+      // 使用 local 存储避免 sync 配额限制
+      storage.local.get('memorizeList', (result) => {
         const list = result.memorizeList || [];
         if (!list.some(w => w.word === word)) {
           list.push({ word, addedAt: Date.now() });
-          chrome.storage.sync.set({ memorizeList: list }, () => {
+          storage.local.set({ memorizeList: list }, () => {
             // 通知 content script 处理特定单词
-            chrome.tabs.sendMessage(tab.id, { 
-              action: 'processSpecificWords', 
-              words: [word] 
+            chrome.tabs.sendMessage(tab.id, {
+              action: 'processSpecificWords',
+              words: [word]
             }).catch(err => {
               console.log('[Sapling] Content script not ready, word will be processed on next page load');
             });
@@ -191,7 +198,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       });
     }
   }
-  
+
   if (info.menuItemId === MENU_ID_TOGGLE_PAGE && tab?.id) {
     togglePageProcessing(tab.id).catch(() => {});
   }
@@ -269,35 +276,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   // 获取统计数据
   if (message.action === 'getStats') {
-    chrome.storage.sync.get([
+    // 从 sync 获取统计数据，从 local 获取词汇列表
+    storage.remote.get([
       'totalWords', 'todayWords', 'lastResetDate',
-      'cacheHits', 'cacheMisses', 'learnedWords', 'memorizeList'
-    ], (result) => {
+      'cacheHits', 'cacheMisses'
+    ], (syncResult) => {
       // 检查是否需要重置今日统计
       const today = new Date().toISOString().split('T')[0];
-      if (result.lastResetDate !== today) {
-        result.todayWords = 0;
-        result.lastResetDate = today;
-        chrome.storage.sync.set({ todayWords: 0, lastResetDate: today });
+      if (syncResult.lastResetDate !== today) {
+        syncResult.todayWords = 0;
+        syncResult.lastResetDate = today;
+        storage.remote.set({ todayWords: 0, lastResetDate: today }, () => {});
       }
-      
-      sendResponse({
-        totalWords: result.totalWords || 0,
-        todayWords: result.todayWords || 0,
-        learnedCount: (result.learnedWords || []).length,
-        memorizeCount: (result.memorizeList || []).length,
-        cacheHits: result.cacheHits || 0,
-        cacheMisses: result.cacheMisses || 0
+
+      // 从 local 获取词汇列表
+      storage.local.get(['learnedWords', 'memorizeList'], (localResult) => {
+        sendResponse({
+          totalWords: syncResult.totalWords || 0,
+          todayWords: syncResult.todayWords || 0,
+          learnedCount: (localResult.learnedWords || []).length,
+          memorizeCount: (localResult.memorizeList || []).length,
+          cacheHits: syncResult.cacheHits || 0,
+          cacheMisses: syncResult.cacheMisses || 0
+        });
       });
     });
     return true;
   }
-  
+
   // 获取缓存统计
   if (message.action === 'getCacheStats') {
-    chrome.storage.local.get('Sapling_word_cache', (result) => {
+    storage.local.get('Sapling_word_cache', (result) => {
       const cache = result.Sapling_word_cache || [];
-      chrome.storage.sync.get('cacheMaxSize', (cfg) => {
+      storage.remote.get('cacheMaxSize', (cfg) => {
         const maxSize = normalizeCacheMaxSize(cfg.cacheMaxSize, CACHE_CONFIG.maxSize);
         sendResponse({
           size: cache.length,
@@ -307,28 +318,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
-  
+
   // 清空缓存
   if (message.action === 'clearCache') {
-    chrome.storage.local.remove('Sapling_word_cache', () => {
-      chrome.storage.sync.set({ cacheHits: 0, cacheMisses: 0 }, () => {
+    storage.local.remove('Sapling_word_cache', () => {
+      storage.remote.set({ cacheHits: 0, cacheMisses: 0 }, () => {
         sendResponse({ success: true });
       });
     });
     return true;
   }
-  
-  // 清空已学会词汇
+
+  // 清空已学会词汇（使用 local 存储）
   if (message.action === 'clearLearnedWords') {
-    chrome.storage.sync.set({ learnedWords: [] }, () => {
+    storage.local.set({ learnedWords: [] }, () => {
       sendResponse({ success: true });
     });
     return true;
   }
-  
-  // 清空需记忆列表
+
+  // 清空需记忆列表（使用 local 存储）
   if (message.action === 'clearMemorizeList') {
-    chrome.storage.sync.set({ memorizeList: [] }, () => {
+    storage.local.set({ memorizeList: [] }, () => {
       sendResponse({ success: true });
     });
     return true;

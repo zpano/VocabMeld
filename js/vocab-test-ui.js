@@ -3,6 +3,7 @@
  */
 
 import { VocabTest, CEFR_DESCRIPTIONS } from './services/vocab-test.js';
+import { storage } from './core/storage/StorageService.js';
 
 // DOM 元素
 const welcomeScreen = document.getElementById('welcomeScreen');
@@ -33,7 +34,7 @@ let vocabTest = null;
  */
 document.addEventListener('DOMContentLoaded', () => {
   // 检查是否已经完成过测试
-  chrome.storage.sync.get(['vocabTestCompleted', 'difficultyLevel'], (result) => {
+  storage.remote.get(['vocabTestCompleted', 'difficultyLevel'], (result) => {
     if (result.vocabTestCompleted) {
       // 已完成测试，关闭窗口或跳转到设置页面
       window.location.href = 'options.html';
@@ -79,8 +80,8 @@ async function skipTest() {
   if (!confirmed) return;
 
   showScreen('loading');
-  
-  await chrome.storage.sync.set({
+
+  await storage.remote.setAsync({
     difficultyLevel: 'B1',
     vocabTestCompleted: true,
     vocabTestSkipped: true
@@ -183,14 +184,14 @@ function showResult(level) {
   showScreen('result');
 
   // 自动保存结果（但不关闭窗口，等待用户确认）
-  chrome.storage.sync.set({
+  storage.remote.set({
     difficultyLevel: level,
     vocabTestResult: {
       level: level,
       stats: stats,
       timestamp: Date.now()
     }
-  });
+  }, () => {});
 }
 
 /**
@@ -200,7 +201,7 @@ async function finishTest() {
   showScreen('loading');
 
   // 标记测试已完成
-  await chrome.storage.sync.set({
+  await storage.remote.setAsync({
     vocabTestCompleted: true
   });
 

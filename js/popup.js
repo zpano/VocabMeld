@@ -3,6 +3,7 @@
  */
 
 import { applyThemeVariables } from './utils/color-utils.js';
+import { storage } from './core/storage/StorageService.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const DEFAULT_THEME = {
@@ -15,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   function applyThemeFromStorage() {
-    chrome.storage.sync.get('theme', (result) => {
+    storage.remote.get('theme', (result) => {
       const theme = { ...DEFAULT_THEME, ...(result?.theme || {}) };
       applyThemeVariables(theme, DEFAULT_THEME);
     });
@@ -23,8 +24,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   applyThemeFromStorage();
 
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'sync' || !changes.theme) return;
+  storage.remote.onChanged((changes) => {
+    if (!changes.theme) return;
     const theme = { ...DEFAULT_THEME, ...(changes.theme.newValue || {}) };
     applyThemeVariables(theme, DEFAULT_THEME);
   });
@@ -97,7 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 加载配置和统计
   async function loadData() {
     // 加载启用状态
-    chrome.storage.sync.get('enabled', (result) => {
+    storage.remote.get('enabled', (result) => {
       const enabled = result.enabled !== false;
       enableToggle.checked = enabled;
       toggleLabel.textContent = enabled ? '已启用' : '已禁用';
@@ -140,10 +141,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 切换启用状态
   enableToggle.addEventListener('change', () => {
     const enabled = enableToggle.checked;
-    chrome.storage.sync.set({ enabled }, () => {
+    storage.remote.set({ enabled }, () => {
       toggleLabel.textContent = enabled ? '已启用' : '已禁用';
       toggleLabel.className = `toggle-label ${enabled ? 'enabled' : 'disabled'}`;
-      
+
       // 通知内容脚本
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tab = tabs?.[0];

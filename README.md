@@ -91,7 +91,7 @@ Sapling 从[VocabMeld](https://github.com/lzskyline/VocabMeld)二次开发而来
 - **OpenAI 兼容 API**：支持任何 OpenAI 格式的 API（OpenAI、DeepSeek、Moonshot、Groq、Ollama 等）
 - **自定义配置**：用户可配置 API 端点、密钥、模型名称
 - **连接测试**：提供一键测试 API 连通性功能
-- **提示词优化**：英文系统/用户 prompt + JSON 严格输出，减少误译与格式偏差
+- **提示词优化**：英文prompt + JSON 严格输出，减少误译与格式偏差
 
 #### 1.2 智能词汇选择
 LLM 根据以下规则选择替换词汇：
@@ -118,7 +118,7 @@ LLM 根据以下规则选择替换词汇：
 | C1 | 高级 | 专业/学术词汇，如 ubiquitous, paradigm |
 | C2 | 精通级 | 罕见/文学词汇，如 ephemeral, quintessential |
 
-**难度过滤逻辑**：用户选择 B2 时，系统显示 B2、C1、C2 难度的词汇（即该等级及以上），避免过于简单的词汇干扰。
+**难度过滤逻辑**：用户选择 B2 时，仅显示 B2、C1、C2 难度的词汇（即该等级及以上），跳过过于简单的词汇。
 
 ### 3. 替换强度控制
 
@@ -135,9 +135,9 @@ LLM 根据以下规则选择替换词汇：
 #### 4.1 缓存机制
 - **容量**：默认 2048，范围 2048-8192（每 1024 为一档，可在设置页滑块/输入框调整）
 - **存储格式**：`原文:源语言:目标语言` 作为键
-- **持久化**：使用 `chrome.storage.local` 存储，跨会话保留
+- **持久化**：使用 `storage.local`（Chrome Storage Local）存储，跨会话保留
 - **淘汰策略**：达到上限时淘汰最旧的缓存
-- **配置同步**：缓存上限使用 `chrome.storage.sync` 保存（键：`cacheMaxSize`）
+- **配置同步**：缓存上限使用 `storage.remote`（Chrome Storage Sync）保存
 
 #### 4.2 缓存命中逻辑
 1. 发送 API 请求前，检查文本中是否有已缓存词汇
@@ -158,7 +158,6 @@ LLM 根据以下规则选择替换词汇：
 - **先展示缓存**：缓存结果立即显示，无需等待 API
 - **异步处理**：未缓存词汇后台异步处理，不阻塞页面
 - **避免重复**：已替换的词汇不会被重复替换
-- **智能限制**：如果缓存已满足配置，异步替换最多1个词
 
 ### 5. 已学会词汇（白名单）
 
@@ -166,7 +165,7 @@ LLM 根据以下规则选择替换词汇：
 用户可将已掌握的词汇加入白名单，这些词汇：
 - **不再被替换**：浏览时保持原文显示
 - **不发送给 API**：从请求文本中预先移除
-- **持久存储**：使用 `chrome.storage.sync` 同步
+- **持久存储**：使用 `storage.local` 存储（避免 sync 配额限制）
 - **难度记录**：保存词汇的难度信息，便于管理
 
 #### 5.2 添加方式
@@ -221,7 +220,7 @@ LLM 根据以下规则选择替换词汇：
 
 | 样式 | 显示格式 | 说明 |
 |------|---------|------|
-| **译文(原文)** | `translated(original)` | 默认样式，翻译词以紫色显示，带虚线下划线 |
+| **译文(原文)** | `translated(original)` | 默认样式 |
 | **仅译文** | `translated` | 只显示译文，悬停查看原文 |
 | **原文(译文)** | `original(translated)` | 原文在前，译文在后 |
 
@@ -236,16 +235,12 @@ LLM 根据以下规则选择替换词汇：
 - 词性与释义（英语学习词优先 Wiktionary，可展示例句）
 - 操作按钮：发音 / 记忆 / 已学会
 
-#### 8.3 点击交互
-- **左键点击**：可在设置中开启，点击译词直接发音
-- **右键点击**：标记为已学会（可配置是否恢复同词）
 
 ### 9. 快捷键支持
 
 #### 9.1 快捷键
 - Windows/Linux：`Alt+T`；macOS：`Option+T`：快速切换处理/还原当前页面
-- 在任何网页上都可以使用，无需打开扩展
-- 也可通过 Popup 的“处理当前页面”按钮或页面右键菜单“处理/还原当前页面”，状态自动切换并同步显示
+- 也可通过点击扩展的“处理当前页面”按钮或页面右键菜单“处理/还原当前页面”，状态自动切换并同步显示
 
 ### 10. 学习统计
 
@@ -279,7 +274,6 @@ LLM 根据以下规则选择替换词汇：
 - 自动处理开关（开启后自动处理新页面）
 - 音标显示开关
 - **左键发音开关**：开启后点击译词直接发音
-- **同词恢复开关**：标记已学会后可恢复当前词或同词全部替换
 - 发音来源：Wiktionary / 有道翻译(英语) / Google 翻译 TTS(多语言)
 - 有道口音（type=1 英音 / type=2 美音；仅在学习语言为英语时生效）
 - **翻译显示样式**：三种样式可选
@@ -354,7 +348,11 @@ Sapling/
 │   │   └── constants.js
 │   ├── core/               # 核心模块
 │   │   ├── config.js       # 配置管理
-│   │   └── storage.js      # 存储服务
+│   │   └── storage/        # 存储抽象层
+│   │       ├── IStorageAdapter.js      # 存储适配器接口
+│   │       ├── ChromeStorageAdapter.js # Chrome Storage 实现
+│   │       ├── StorageNamespace.js     # 存储命名空间（回调/Promise 双风格）
+│   │       └── StorageService.js       # 存储服务门面
 │   ├── prompts/            # 提示词模板
 │   │   └── ai-prompts.js
 │   ├── services/           # 服务模块
@@ -437,6 +435,26 @@ function isDifficultyCompatible(wordDifficulty, userDifficulty) {
 - Vanilla JavaScript (ES6+)
 - CSS Variables + Modern CSS
 - esbuild（用于打包 `dist/content.js` 和 `vendor/segmentit.bundle.js`）
+
+### 存储抽象架构
+
+项目使用分层存储架构：
+
+```
+┌─────────────────────────────────────┐
+│         StorageService              │  高级API
+│  storage.remote / storage.local     │
+├─────────────────────────────────────┤
+│         StorageNamespace            │  低级 API（get/set/remove/onChanged）
+│    回调风格 + Promise 风格           │  支持 DEFAULT_CONFIG 合并
+├─────────────────────────────────────┤
+│         IStorageAdapter             │  适配器接口
+│   ChromeStorageAdapter (当前)       │  未来可替换为 WebDAVAdapter
+└─────────────────────────────────────┘
+```
+
+- **storage.remote**：配置数据（Chrome Storage Sync），支持跨设备同步
+- **storage.local**：大容量数据（Chrome Storage Local），如词汇缓存、已学会词汇
 
 ### 本地开发
 1. 修改 `options.html/js/options.js`、`popup.html/js/popup.js`、`js/background.js` 等：在 `chrome://extensions/` 点击刷新即可
