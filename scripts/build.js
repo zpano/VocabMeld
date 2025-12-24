@@ -92,10 +92,41 @@ async function bundleContentScript() {
   }
 }
 
+// ===== 打包 vocab-test-ui.js =====
+async function bundleVocabTest() {
+  console.log('正在打包 vocab-test-ui.js...');
+
+  const distDir = path.join(__dirname, '..', 'dist');
+  if (!fs.existsSync(distDir)) {
+    fs.mkdirSync(distDir, { recursive: true });
+  }
+
+  try {
+    await esbuild.build({
+      entryPoints: [path.join(__dirname, '..', 'js', 'vocab-test-ui.js')],
+      bundle: true,
+      format: 'iife',
+      platform: 'browser',
+      outfile: path.join(distDir, 'vocab-test.js'),
+      minify: false,
+      sourcemap: true,
+      banner: {
+        js: '// Sapling Vocab Test UI (Bundled)\n',
+      },
+    });
+
+    console.log('✓ vocab-test-ui.js 已成功打包到 dist/vocab-test.js');
+  } catch (error) {
+    console.error('✗ 打包 vocab-test-ui.js 失败:', error);
+    process.exit(1);
+  }
+}
+
 // ===== 主函数 =====
 async function main() {
   await bundleSegmentit();
   await bundleContentScript();
+  await bundleVocabTest();
   console.log('');
   console.log('✓ 构建完成！');
 }
