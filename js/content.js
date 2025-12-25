@@ -669,6 +669,29 @@ async function processSpecificWords(targetWords) {
       const parent = node.parentElement;
       if (!parent) return NodeFilter.FILTER_REJECT;
 
+      // 跳过典型 UI 区域（导航/菜单/工具栏等），避免记忆词处理污染站点 UI
+      try {
+        if (parent.closest?.(
+          'header,nav,aside,footer,' +
+          '[role="navigation"],[role="banner"],[role="contentinfo"],[role="complementary"],' +
+          '[role="menu"],[role="menubar"],[role="tablist"],[role="tab"],[role="toolbar"],[role="button"],' +
+          'button,select,option,' +
+          '.nav,.navbar,.nav-bar,.navigation,.menu,.menubar,.tabs,.tab,.tabbar,.dropdown,.filter,.breadcrumb,.pagination'
+        )) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        if (parent.tagName === 'LI' && parent.closest?.('nav,[role="navigation"],.nav,.navbar,.menu,.menubar,.tabs,.tabbar')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        const cls = parent.className || '';
+        if (typeof cls === 'string') {
+          const lower = cls.toLowerCase();
+          if (['nav', 'menu', 'tab', 'dropdown', 'filter', 'breadcrumb', 'pagination', 'toolbar', 'header'].some(sub => lower.includes(sub))) {
+            return NodeFilter.FILTER_REJECT;
+          }
+        }
+      } catch (e) {}
+
       if (SKIP_TAGS.includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
 
       const classList = parent.classList;

@@ -7,6 +7,60 @@ import { SKIP_TAGS, SKIP_CLASSES } from '../config/constants.js';
 import { isCodeText } from '../utils/word-filters.js';
 import { isInAllowedContentEditableRegion } from '../utils/dom-utils.js';
 
+// 典型 UI/导航容器选择器，避免替换站点导航/菜单导致布局错乱
+const UI_CONTAINER_SELECTOR = [
+  'header',
+  'nav',
+  'aside',
+  'footer',
+  '[role="navigation"]',
+  '[role="banner"]',
+  '[role="contentinfo"]',
+  '[role="complementary"]',
+  '[role="menu"]',
+  '[role="menubar"]',
+  '[role="tablist"]',
+  '[role="tab"]',
+  '[role="toolbar"]',
+  '[role="button"]',
+  'button',
+  'select',
+  'option',
+  '.nav',
+  '.navbar',
+  '.nav-bar',
+  '.navigation',
+  '.menu',
+  '.menubar',
+  '.tabs',
+  '.tab',
+  '.tabbar',
+  '.dropdown',
+  '.filter',
+  '.breadcrumb',
+  '.pagination'
+].join(',');
+
+// 具有特征类名的 UI 容器（包含匹配，兼容站点自定义类，如 channel-tabs/nav-tabs）
+const UI_CLASS_SUBSTRINGS = ['nav', 'menu', 'tab', 'dropdown', 'filter', 'breadcrumb', 'pagination', 'toolbar', 'header'];
+
+function isUiContainer(element) {
+  if (!element?.closest) return false;
+  try {
+    if (element.closest(UI_CONTAINER_SELECTOR)) return true;
+    // 导航列表项
+    if (element.tagName === 'LI' && element.closest('nav,[role="navigation"],.nav,.navbar,.menu,.menubar,.tabs,.tabbar')) {
+      return true;
+    }
+    const cls = element.className || '';
+    if (typeof cls === 'string') {
+      const lower = cls.toLowerCase();
+      if (UI_CLASS_SUBSTRINGS.some(sub => lower.includes(sub))) return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
 /**
  * 内容分段器类
  */
@@ -37,6 +91,9 @@ class ContentSegmenter {
     }
 
     const element = node;
+
+    // 跳过典型 UI 区域（导航/菜单/工具栏等），避免替换导致站点布局错乱
+    if (isUiContainer(element)) return true;
 
     // 跳过特定标签
     if (SKIP_TAGS.includes(element.tagName)) {

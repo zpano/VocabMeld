@@ -19,6 +19,44 @@ export class TooltipManager {
     this.config = null;
   }
 
+  /**
+   * 将 tooltip 定位到屏幕内（避免溢出/被遮挡）
+   * Tooltip 采用 fixed 定位，坐标基于 viewport
+   * @param {DOMRect} targetRect
+   */
+  positionTooltip(targetRect) {
+    if (!this.tooltip || !targetRect) return;
+
+    const margin = 8;
+    const gap = 8;
+
+    // 先把 tooltip 放到屏幕外，确保测量到正确尺寸
+    this.tooltip.style.left = '-9999px';
+    this.tooltip.style.top = '-9999px';
+    this.tooltip.style.display = 'block';
+
+    const tooltipRect = this.tooltip.getBoundingClientRect();
+    const width = tooltipRect.width || 0;
+    const height = tooltipRect.height || 0;
+
+    const vw = window.innerWidth || 0;
+    const vh = window.innerHeight || 0;
+
+    // 默认在目标元素下方；若下方放不下则翻到上方
+    let top = targetRect.bottom + gap;
+    if (top + height + margin > vh) {
+      top = targetRect.top - height - gap;
+    }
+    top = Math.min(vh - height - margin, Math.max(margin, top));
+
+    // 默认左对齐；左右都做 clamp
+    let left = targetRect.left;
+    left = Math.min(vw - width - margin, Math.max(margin, left));
+
+    this.tooltip.style.left = `${left}px`;
+    this.tooltip.style.top = `${top}px`;
+  }
+
   escapeHtml(value) {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -111,11 +149,8 @@ export class TooltipManager {
       isLoading: hasDictionaryWord
     });
 
-    // 定位 tooltip
-    const rect = element.getBoundingClientRect();
-    this.tooltip.style.left = rect.left + window.scrollX + 'px';
-    this.tooltip.style.top = rect.bottom + window.scrollY + 5 + 'px';
-    this.tooltip.style.display = 'block';
+    // 定位 tooltip（fixed，避免溢出）
+    this.positionTooltip(element.getBoundingClientRect());
 
     // 如果有字典词，异步获取 Wiktionary 数据并更新
     if (hasDictionaryWord) {
@@ -153,6 +188,9 @@ export class TooltipManager {
           aiExample,
           isLoading: false
         });
+        if (this.currentTooltipElement === element) {
+          this.positionTooltip(element.getBoundingClientRect());
+        }
       } catch (error) {
         // Wiktionary 失败，保持 AI 数据
         if (this.tooltip.dataset.dictWord === key) {
@@ -168,6 +206,9 @@ export class TooltipManager {
             aiExample,
             isLoading: false
           });
+          if (this.currentTooltipElement === element) {
+            this.positionTooltip(element.getBoundingClientRect());
+          }
         }
       }
     }
