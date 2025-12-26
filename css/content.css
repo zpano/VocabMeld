@@ -161,6 +161,53 @@
   padding: 0 !important;
 }
 
+.Sapling-tooltip .Sapling-tooltip-phonetic-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin-bottom: 6px !important;
+}
+
+.Sapling-tooltip .Sapling-tooltip-phonetic-row .Sapling-tooltip-phonetic {
+  display: inline-block !important;
+  margin-bottom: 0 !important;
+}
+
+.Sapling-tooltip .Sapling-tooltip-phonetic-row--empty {
+  justify-content: flex-start !important;
+}
+
+.Sapling-tooltip .Sapling-phonetic-speak-btn {
+  flex: 0 0 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: var(--sapling-text-muted) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.Sapling-tooltip .Sapling-phonetic-speak-btn:hover {
+  background: rgba(var(--sapling-sprout-rgb), 0.18) !important;
+  color: var(--sapling-highlight) !important;
+  transform: translateY(-1px) !important;
+}
+
+.Sapling-tooltip .Sapling-phonetic-speak-btn:active {
+  transform: translateY(0) !important;
+}
+
+.Sapling-tooltip .Sapling-phonetic-speak-btn:focus-visible {
+  outline: 2px solid rgba(var(--sapling-highlight-rgb), 0.7) !important;
+  outline-offset: 2px !important;
+}
+
 .Sapling-tooltip .Sapling-tooltip-original {
   color: var(--sapling-text-dim) !important;
   font-size: 13px !important;

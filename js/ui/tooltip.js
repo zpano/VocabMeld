@@ -227,9 +227,19 @@ export class TooltipManager {
     const safeShortDefinition = this.escapeHtml(shortDefinition);
     const safeDifficulty = this.escapeHtml(difficulty);
 
+    const speakIconButtonHtml = `
+      <button class="Sapling-phonetic-speak-btn" data-action="speak" title="发音" aria-label="发音">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+        </svg>
+      </button>
+    `;
+
     const safePhoneticHtml = safePhonetic
-      ? `<div class="Sapling-tooltip-phonetic">${safePhonetic}</div>`
-      : '';
+      ? `<div class="Sapling-tooltip-phonetic-row"><div class="Sapling-tooltip-phonetic">${safePhonetic}</div>${speakIconButtonHtml}</div>`
+      : `<div class="Sapling-tooltip-phonetic-row Sapling-tooltip-phonetic-row--empty">${speakIconButtonHtml}</div>`;
 
     const safePosHtml = safePartOfSpeech
       ? `<span class="Sapling-tooltip-pos">${safePartOfSpeech}</span>`
@@ -269,14 +279,6 @@ export class TooltipManager {
       ${safeDefinitionHtml}
       ${safeExamplesHtml}
       <div class="Sapling-tooltip-actions">
-        <button class="Sapling-action-btn Sapling-btn-speak" data-action="speak" title="Pronounce">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-          </svg>
-          <span>发音</span>
-        </button>
         <button class="Sapling-action-btn Sapling-btn-memorize" data-action="memorize" title="Add to memorize list">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 5v14M5 12h14"></path>

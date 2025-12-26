@@ -1122,10 +1122,10 @@ function setupEventListeners() {
   document.addEventListener('click', async (e) => {
     if (e.button !== 0) return;
 
-    const actionBtn = e.target.closest('.Sapling-action-btn');
+    const actionBtn = e.target.closest('button[data-action]');
     const currentElement = tooltipManager.getCurrentElement();
 
-    if (actionBtn && currentElement) {
+    if (actionBtn && currentElement && actionBtn.closest('.Sapling-tooltip')) {
       e.preventDefault();
       e.stopPropagation();
 
