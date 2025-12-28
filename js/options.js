@@ -64,6 +64,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const CONCURRENCY_LIMIT_MAX = 20;
   const DEFAULT_MAX_BATCH_SIZE = 3;
   const MAX_BATCH_SIZE_MAX = 10;
+  const DEFAULT_MAX_TOKENS = 16384;
+  const MAX_TOKENS_MIN = 4096;
+  const MAX_TOKENS_MAX = 200000;
   const DEFAULT_THEME = {
     brand: '#81C784',
     background: '#1B1612',
@@ -93,6 +96,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function normalizeMaxBatchSize(value) {
     return normalizePositiveInt(value, DEFAULT_MAX_BATCH_SIZE, { min: 1, max: MAX_BATCH_SIZE_MAX });
+  }
+
+  function normalizeMaxTokens(value) {
+    return normalizePositiveInt(value, DEFAULT_MAX_TOKENS, { min: MAX_TOKENS_MIN, max: MAX_TOKENS_MAX });
   }
 
   // 防抖保存函数
@@ -157,6 +164,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 高级设置
     concurrencyLimit: document.getElementById('concurrencyLimit'),
     maxBatchSize: document.getElementById('maxBatchSize'),
+    maxTokens: document.getElementById('maxTokens'),
     outputFormat: document.getElementById('outputFormat'),
     processFullPage: document.getElementById('processFullPage'),
 
@@ -408,6 +416,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // 高级设置
       if (elements.concurrencyLimit) elements.concurrencyLimit.value = String(normalizeConcurrencyLimit(syncResult.concurrencyLimit));
       if (elements.maxBatchSize) elements.maxBatchSize.value = String(normalizeMaxBatchSize(syncResult.maxBatchSize));
+      if (elements.maxTokens) elements.maxTokens.value = String(normalizeMaxTokens(syncResult.maxTokens));
       if (elements.outputFormat) elements.outputFormat.value = syncResult.outputFormat ?? 'standard';
       if (elements.processFullPage) elements.processFullPage.checked = syncResult.processFullPage ?? false;
 
@@ -995,6 +1004,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const normalizedMaxBatchSize = normalizeMaxBatchSize(elements.maxBatchSize?.value);
     if (elements.maxBatchSize) elements.maxBatchSize.value = String(normalizedMaxBatchSize);
 
+    const normalizedMaxTokens = normalizeMaxTokens(elements.maxTokens?.value);
+    if (elements.maxTokens) elements.maxTokens.value = String(normalizedMaxTokens);
+
     updateActiveApiProfileFromUI();
 
     return {
@@ -1020,6 +1032,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       cacheMaxSize: normalizedCacheMaxSize,
       concurrencyLimit: normalizedConcurrencyLimit,
       maxBatchSize: normalizedMaxBatchSize,
+      maxTokens: normalizedMaxTokens,
       outputFormat: elements.outputFormat?.value ?? 'standard',
       processFullPage: elements.processFullPage?.checked ?? false
     };
@@ -1123,7 +1136,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const numberInputs = [
       elements.concurrencyLimit,
-      elements.maxBatchSize
+      elements.maxBatchSize,
+      elements.maxTokens
     ].filter(Boolean);
 
     numberInputs.forEach(input => {

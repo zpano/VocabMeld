@@ -406,6 +406,13 @@
         </div>
 
         <div class="form-group">
+          <label for="maxTokens">最大 Token 数</label>
+          <p class="help-text">每次 API 请求的最大输出 token 数。默认：16384，最大：200000</p>
+          <p class="help-text">需要注意，此数值过低可能会导致翻译失败。如果翻译失败请尝试提高此数值。</p>
+          <input type="number" id="maxTokens" min="4096" max="200000" step="1024" value="16384">
+        </div>
+
+        <div class="form-group">
           <label for="outputFormat">API 响应格式</label>
           <p class="help-text">
             选择 AI 返回的数据格式。<strong>TOON 格式</strong>可减少约 <strong>30-40% 的 token 使用</strong>，从而降低 API 成本。

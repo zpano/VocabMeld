@@ -111,7 +111,6 @@ export function decodeContent(content, outputFormat) {
   if (window.TOON.isToonFormat?.(cleaned)) {
     try {
       const decoded = window.TOON.decode(cleaned);
-      console.debug('[TOON] 成功解码 TOON 格式响应');
       return JSON.stringify(decoded);
     } catch (error) {
       console.error('[TOON] 解码失败:', error.message);

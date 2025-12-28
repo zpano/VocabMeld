@@ -3,7 +3,7 @@
  * 处理与 LLM API 的通信，统一管理翻译逻辑
  */
 
-import { INTENSITY_CONFIG, isDifficultyCompatible, CACHE_CONFIG, normalizeCacheMaxSize, normalizeConcurrencyLimit } from '../core/config.js';
+import { INTENSITY_CONFIG, isDifficultyCompatible, CACHE_CONFIG, normalizeCacheMaxSize, normalizeConcurrencyLimit, normalizeMaxTokens } from '../core/config.js';
 import { cacheService } from './cache-service.js';
 import { buildVocabularySelectionPrompt, buildBatchVocabularySelectionPrompt, buildSpecificWordsPrompt } from '../prompts/ai-prompts.js';
 import { detectLanguage } from '../utils/language-detector.js';
@@ -417,7 +417,7 @@ class ApiService {
                   { role: 'user', content: userPrompt }
                 ],
                 temperature: 0,
-                max_tokens: 8192  // 批量请求需要更多 token
+                max_tokens: normalizeMaxTokens(config?.maxTokens)
               })
             });
           } catch (fetchError) {
@@ -725,7 +725,7 @@ class ApiService {
                   { role: 'user', content: userPrompt }
                 ],
                 temperature: 0,
-                max_tokens: 4096
+                max_tokens: normalizeMaxTokens(config?.maxTokens)
               })
             });
           } catch (fetchError) {

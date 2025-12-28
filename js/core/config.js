@@ -111,6 +111,7 @@ export const DEFAULT_CONFIG = {
   // 高级设置
   concurrencyLimit: 5,
   maxBatchSize: 3,
+  maxTokens: 16384,
   processFullPage: false,
 
   // TOON 格式设置
@@ -140,7 +141,8 @@ export const CACHE_SIZE_STEP = 1024;
 
 export const ADVANCED_LIMITS = {
   concurrencyLimit: { min: 1, max: 20 },
-  maxBatchSize: { min: 1, max: 10 }
+  maxBatchSize: { min: 1, max: 10 },
+  maxTokens: { min: 4096, max: 200000 }
 };
 
 /**
@@ -169,6 +171,10 @@ export function normalizeConcurrencyLimit(value, fallback = DEFAULT_CONFIG.concu
 
 export function normalizeMaxBatchSize(value, fallback = DEFAULT_CONFIG.maxBatchSize) {
   return normalizeIntInRange(value, fallback, ADVANCED_LIMITS.maxBatchSize);
+}
+
+export function normalizeMaxTokens(value, fallback = DEFAULT_CONFIG.maxTokens) {
+  return normalizeIntInRange(value, fallback, ADVANCED_LIMITS.maxTokens);
 }
 
 // 需要跳过的标签
