@@ -110,21 +110,13 @@ export function decodeToon(toonContent) {
     // 转换为 JSON 字符串供现有解析器使用
     return JSON.stringify(decoded);
   } catch (error) {
-    // 检测是否为行数不匹配错误
-    if (error.message && error.message.includes('tabular rows')) {
-      const { fixed, actualCount, declaredCount } = fixToonRowCount(cleanContent);
-
-      if (actualCount !== declaredCount) {
-        try {
-          const decoded = window.TOON.decode(fixed);
-          return JSON.stringify(decoded);
-        } catch (retryError) {
-          throw new Error(`TOON 解码失败 (修正后仍失败): ${retryError.message}`);
-        }
-      }
+    const { fixed, actualCount, declaredCount } = fixToonRowCount(cleanContent);
+    try {
+        const decoded = window.TOON.decode(fixed);
+        return JSON.stringify(decoded);
+    } catch (retryError) {
+        throw new Error(`TOON 解码失败 (修正后仍失败): ${retryError.message}`);
     }
-
-    throw new Error(`TOON 解码失败: ${error.message}`);
   }
 }
 
