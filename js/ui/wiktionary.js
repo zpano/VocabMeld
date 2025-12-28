@@ -4,6 +4,7 @@
  */
 
 import { storage } from '../core/storage/StorageService.js';
+import { audioIframePlayer } from '../services/audio-iframe-player.js';
 
 // 词典缓存
 const dictionaryCache = new Map();
@@ -397,12 +398,8 @@ export async function playDictionaryAudio(word, langCode = 'en') {
       throw new Error('No audio');
     }
 
-    const result = await chrome.runtime.sendMessage({ action: 'playAudioUrls', urls }).catch((e) => {
-      throw e;
-    });
-
-    if (result?.success) return;
-    throw new Error(result?.message || 'Audio play failed');
+    // 使用 iframe 播放器替代 offscreen document
+    await audioIframePlayer.play(urls);
   } catch (error) {
     console.warn('[Sapling] Dictionary audio failed:', error);
     throw error;

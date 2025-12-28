@@ -2,6 +2,8 @@
  * Sapling 发音音频源
  */
 
+import { audioIframePlayer } from '../services/audio-iframe-player.js';
+
 function normalizeYoudaoType(type) {
   return Number(type) === 1 ? 1 : 2;
 }
@@ -45,12 +47,8 @@ export async function playAudioUrls(urls) {
   const list = Array.isArray(urls) ? urls.filter(Boolean) : [];
   if (!list.length) throw new Error('No audio URLs');
 
-  const result = await chrome.runtime.sendMessage({ action: 'playAudioUrls', urls: list }).catch((e) => {
-    throw e;
-  });
-
-  if (result?.success) return;
-  throw new Error(result?.message || 'Audio play failed');
+  // 使用 iframe 播放器替代 offscreen document
+  await audioIframePlayer.play(list);
 }
 
 export async function playYoudaoDictVoice(word, type = 2) {

@@ -58,7 +58,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "css/*", "wordlist/*"],
+      "resources": ["audio-player.html", "audio-player.js", "icons/*", "css/*", "wordlist/*"],
       "matches": ["<all_urls>"]
     }
   ]
