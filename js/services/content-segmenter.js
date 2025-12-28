@@ -319,6 +319,7 @@ class ContentSegmenter {
   getPageSegments(root = document.body, options = {}) {
     const { viewportOnly = false, margin = 300 } = options;
     const segments = [];
+
     const inlineTextTags = new Set([
       'A',
       'ABBR',
@@ -399,6 +400,7 @@ class ContentSegmenter {
       // Mixed-content container: has block children but also meaningful direct text.
       // Split direct text into multiple small run elements so each run can be processed independently.
       if (hasBlockElementChild && directText.length > 10) {
+        // 正常路径：包装直接文本为独立 run 元素（使用 display: contents 避免布局重算）
         const runElements = this.wrapDirectTextRuns(container);
 
         for (const runEl of runElements) {
@@ -663,7 +665,7 @@ class ContentSegmenter {
 
       const span = document.createElement('span');
       span.setAttribute('data-Sapling-text-run', 'true');
-      span.style.whiteSpace = 'inherit';
+      span.style.display = 'contents';  // 不创建盒子，避免触发布局重算
 
       element.insertBefore(span, nodes[0]);
       for (const n of nodes) {
