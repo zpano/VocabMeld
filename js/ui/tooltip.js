@@ -7,6 +7,7 @@ import { getDictionaryEntry, playDictionaryAudio } from './wiktionary.js';
 import { playGoogleTranslateTts, playYoudaoDictVoice } from './pronunciation.js';
 import { detectLanguage } from '../utils/language-detector.js';
 import { isSingleEnglishWord } from '../utils/word-filters.js';
+import { normalizePhonetic } from '../utils/phonetic-utils.js';
 
 /**
  * Tooltip 管理类
@@ -102,7 +103,8 @@ export class TooltipManager {
     this.currentTooltipElement = element;
     const original = element.getAttribute('data-original') || '';
     const translation = element.getAttribute('data-translation') || '';
-    const aiPhonetic = element.getAttribute('data-phonetic') || '';
+    const aiPhoneticRaw = element.getAttribute('data-phonetic') || '';
+    const aiPhonetic = normalizePhonetic(aiPhoneticRaw);
     const difficulty = element.getAttribute('data-difficulty') || '';
     const aiPartOfSpeech = element.getAttribute('data-part-of-speech') || '';
     const aiShortDefinition = element.getAttribute('data-short-definition') || '';
@@ -164,7 +166,7 @@ export class TooltipManager {
         if (this.tooltip.dataset.dictWord !== key) return;
 
         // 使用 Wiktionary 数据优先（英语学习时更可靠），AI 为备选
-        const finalPhonetic = entry?.phoneticText || aiPhonetic;
+        const finalPhonetic = normalizePhonetic(entry?.phoneticText || aiPhoneticRaw);
         const finalPartOfSpeech = entry?.partOfSpeech || aiPartOfSpeech;
 
         let finalDefinition = entry?.shortDefinition || aiShortDefinition;
@@ -198,7 +200,7 @@ export class TooltipManager {
             learningWord,
             nativeTranslation,
             difficulty,
-            phonetic: aiPhonetic,
+          phonetic: aiPhonetic,
             originalWord: original,
             partOfSpeech: aiPartOfSpeech,
             shortDefinition: aiShortDefinition,
@@ -221,7 +223,8 @@ export class TooltipManager {
   renderTooltipContent({ learningWord, nativeTranslation, difficulty, phonetic, originalWord, partOfSpeech, shortDefinition, wiktionaryExample, aiExample, isLoading }) {
     const safeLearningWord = this.escapeHtml(learningWord);
     const safeNativeTranslation = this.escapeHtml(nativeTranslation);
-    const safePhonetic = this.escapeHtml(phonetic);
+    const normalizedPhonetic = normalizePhonetic(phonetic);
+    const safePhonetic = this.escapeHtml(normalizedPhonetic);
     const safeOriginalWord = this.escapeHtml(originalWord);
     const safePartOfSpeech = this.escapeHtml(partOfSpeech);
     const safeShortDefinition = this.escapeHtml(shortDefinition);

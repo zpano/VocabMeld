@@ -5,6 +5,7 @@
 
 import { SKIP_TAGS, SKIP_CLASSES } from '../config/constants.js';
 import { isInAllowedContentEditableRegion } from '../utils/dom-utils.js';
+import { normalizePhonetic } from '../utils/phonetic-utils.js';
 
 /**
  * 文本替换器类
@@ -147,7 +148,8 @@ class TextReplacer {
     wrapper.className = 'Sapling-translated';
     wrapper.setAttribute('data-original', original);
     wrapper.setAttribute('data-translation', translation);
-    wrapper.setAttribute('data-phonetic', phonetic || '');
+    const normalizedPhonetic = normalizePhonetic(phonetic);
+    wrapper.setAttribute('data-phonetic', normalizedPhonetic);
     wrapper.setAttribute('data-difficulty', difficulty || 'B1');
     wrapper.setAttribute('data-part-of-speech', partOfSpeech || '');
     wrapper.setAttribute('data-short-definition', shortDefinition || '');
