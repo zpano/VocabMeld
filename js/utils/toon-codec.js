@@ -4,13 +4,14 @@
  */
 
 /**
- * 从 AI 响应中提取纯净的 TOON 内容
- * AI 可能在 TOON 内容前输出废话，如 "Here is the TOON format:"
+ * 从 AI 响应中提取纯净的 TOON 内容，并同步修正行数声明
+ * - 去除 AI 可能输出的前置废话（如 "Here is the TOON format:"）
+ * - 统计实际数据行数并修正 header 中的行数声明
  *
  * @param {string} content - 原始响应内容
- * @returns {string} 提取的 TOON 内容（或原始内容）
+ * @returns {string} 提取并修正后的 TOON 内容
  */
-function extractToonContent(content) {
+function extractAndFixToonContent(content) {
   const lines = content.split('\n');
 
   // 查找 TOON header 行: [N]{fields}:
@@ -20,24 +21,28 @@ function extractToonContent(content) {
     return content;
   }
 
-  // 从 header 行开始提取
-  const toonLines = [lines[headerIndex]];
+  const headerLine = lines[headerIndex].trim();
+  const dataLines = [];
 
   // 提取后续的数据行（以 2 个空格开头）
   for (let i = headerIndex + 1; i < lines.length; i++) {
     const line = lines[i];
     if (line.startsWith('  ') && line.trim()) {
-      toonLines.push(line);
+      dataLines.push(line);
     } else if (line.trim() === '') {
-      // 跳过空行
       continue;
     } else {
-      // 遇到非数据行，停止
       break;
     }
   }
 
-  return toonLines.join('\n');
+  // 修正 header 中的行数声明
+  const fixedHeader = headerLine.replace(
+    /^\[(\d+)\](\{[^}]+\}:)/,
+    `[${dataLines.length}]$2`
+  );
+
+  return [fixedHeader, ...dataLines].join('\n');
 }
 
 /**
@@ -47,46 +52,11 @@ function extractToonContent(content) {
  */
 export function isToonFormat(content) {
   if (typeof window.TOON === 'undefined' || typeof window.TOON.isToonFormat !== 'function') {
-    // TOON 库未加载，使用简化检测
     return false;
   }
 
-  // 先提取可能的 TOON 内容再检测
-  const extracted = extractToonContent(content);
+  const extracted = extractAndFixToonContent(content);
   return window.TOON.isToonFormat(extracted);
-}
-
-/**
- * 修正 TOON 格式的行数声明
- * AI 返回的 TOON 格式中，头部声明的行数可能与实际数据行数不匹配
- *
- * @param {string} toonContent - TOON 格式内容
- * @returns {{ fixed: string, actualCount: number, declaredCount: number }} 修正结果
- */
-function fixToonRowCount(toonContent) {
-  // 统计数据行（以 2 个空格开头的非空行）
-  const lines = toonContent.split('\n');
-  const dataLines = lines.filter(line => line.startsWith('  ') && line.trim());
-  const actualCount = dataLines.length;
-
-  // 提取头部声明的行数
-  const headerMatch = toonContent.match(/^\[(\d+)\](\{[^}]+\}:)/m);
-  if (!headerMatch) {
-    return { fixed: toonContent, actualCount, declaredCount: actualCount };
-  }
-
-  const declaredCount = parseInt(headerMatch[1], 10);
-
-  // 如果行数不匹配，修正头部
-  if (declaredCount !== actualCount) {
-    const fixed = toonContent.replace(
-      /^\[(\d+)\](\{[^}]+\}:)/m,
-      `[${actualCount}]$2`
-    );
-    return { fixed, actualCount, declaredCount };
-  }
-
-  return { fixed: toonContent, actualCount, declaredCount };
 }
 
 /**
@@ -100,23 +70,14 @@ export function decodeToon(toonContent) {
     throw new Error('TOON 库未加载');
   }
 
-  // 预处理：提取纯净的 TOON 内容（去除 AI 可能输出的前置废话）
-  const cleanContent = extractToonContent(toonContent);
+  // 预处理：提取并修正 TOON 内容
+  const cleanContent = extractAndFixToonContent(toonContent);
 
   try {
-    // 调用 TOON.decode() 解码为 JavaScript 对象
     const decoded = window.TOON.decode(cleanContent);
-
-    // 转换为 JSON 字符串供现有解析器使用
     return JSON.stringify(decoded);
   } catch (error) {
-    const { fixed, actualCount, declaredCount } = fixToonRowCount(cleanContent);
-    try {
-        const decoded = window.TOON.decode(fixed);
-        return JSON.stringify(decoded);
-    } catch (retryError) {
-        throw new Error(`TOON 解码失败 (修正后仍失败): ${retryError.message}`);
-    }
+    throw new Error(`TOON 解码失败: ${error.message}`);
   }
 }
 
@@ -133,22 +94,29 @@ export function decodeContent(content, outputFormat) {
     return content;
   }
 
-  // 如果用户启用了 TOON 格式
-  if (outputFormat === 'toon') {
-    // 检测是否为 TOON 格式
-    if (isToonFormat(content)) {
-      try {
-        const decodedJson = decodeToon(content);
-        console.debug('[TOON] 成功解码 TOON 格式响应');
-        return decodedJson;
-      } catch (error) {
-        console.error('[TOON] 解码失败:', error.message);
-        // 解析失败，返回原始内容让调用者处理
-        return content;
-      }
+  // 非 TOON 格式直接返回
+  if (outputFormat !== 'toon') {
+    return content;
+  }
+
+  // 检查 TOON 库是否可用
+  if (typeof window.TOON === 'undefined') {
+    return content;
+  }
+
+  // 预处理一次：提取并修正 TOON 内容
+  const cleaned = extractAndFixToonContent(content);
+
+  // 检测并解码
+  if (window.TOON.isToonFormat?.(cleaned)) {
+    try {
+      const decoded = window.TOON.decode(cleaned);
+      console.debug('[TOON] 成功解码 TOON 格式响应');
+      return JSON.stringify(decoded);
+    } catch (error) {
+      console.error('[TOON] 解码失败:', error.message);
     }
   }
 
-  // 标准格式或 TOON 检测失败，直接返回内容
   return content;
 }
