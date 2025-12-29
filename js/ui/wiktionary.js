@@ -398,7 +398,6 @@ export async function playDictionaryAudio(word, langCode = 'en') {
       throw new Error('No audio');
     }
 
-    // 只播放第一个 URL，不再 fallback
     await playAudioUrl(url);
   } catch (error) {
     console.warn('[Sapling] Dictionary audio failed:', error);

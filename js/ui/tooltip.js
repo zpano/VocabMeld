@@ -5,6 +5,7 @@
 
 import { getDictionaryEntry, playDictionaryAudio } from './wiktionary.js';
 import { playGoogleTranslateTts, playYoudaoDictVoice } from './pronunciation.js';
+import { showToast } from './toast.js';
 import { detectLanguage } from '../utils/language-detector.js';
 import { isSingleEnglishWord } from '../utils/word-filters.js';
 import { normalizePhonetic } from '../utils/phonetic-utils.js';
@@ -382,40 +383,33 @@ export class TooltipManager {
 
     const provider = this.config?.pronunciationProvider || 'wiktionary';
 
-    if (provider === 'google') {
-      try {
-        await playGoogleTranslateTts(word, lang);
-        return;
-      } catch (e) {
-        // 降级到字典或 TTS
-      }
+    // 检查 provider 语言兼容性（wiktionary/youdao 仅支持英语）
+    const providerSupportsLang = {
+      wiktionary: lang === 'en',
+      youdao: lang === 'en',
+      google: true
+    };
+
+    if (!providerSupportsLang[provider]) {
+      showToast('你所选择的发音来源不支持你学习的语言', { type: 'error' });
+      return;
     }
 
-    if (lang === 'en') {
-      const youdaoType = this.config?.youdaoPronunciationType ?? 2;
-
-      if (provider === 'youdao') {
-        try {
-          await playYoudaoDictVoice(word, youdaoType);
-          return;
-        } catch (e) {
-          // 降级到 Wiktionary 或 TTS
-        }
-      }
-
-      try {
-        await playDictionaryAudio(word, lang);
-        return;
-      } catch (e) {
-        // Wiktionary 失败，降级到 Google Translate TTS
-      }
-    }
-
-    // 非英语或上述方案都失败，尝试 Google Translate TTS
     try {
-      await playGoogleTranslateTts(word, lang);
-    } catch (e) {
-      // 所有方案都失败，静默忽略
+      switch (provider) {
+        case 'google':
+          await playGoogleTranslateTts(word, lang);
+          break;
+        case 'youdao':
+          await playYoudaoDictVoice(word, this.config?.youdaoPronunciationType ?? 2);
+          break;
+        case 'wiktionary':
+        default:
+          await playDictionaryAudio(word, lang);
+          break;
+      }
+    } catch (error) {
+      showToast('音频播放失败', { type: 'error' });
     }
   }
 }
