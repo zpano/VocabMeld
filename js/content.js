@@ -67,7 +67,6 @@ function isHostnameBlacklisted(hostname, blacklistList) {
 async function loadConfig() {
   return new Promise((resolve) => {
     const applyConfig = (result = {}) => {
-      console.log('[Sapling] Applying config:', result);
       const safeResult = result || {};
       const apiProfiles = Array.isArray(safeResult.apiProfiles) ? safeResult.apiProfiles : [];
       const activeApiProfileId = typeof safeResult.activeApiProfileId === 'string'
@@ -1184,6 +1183,15 @@ function setupEventListeners() {
   // 监听配置变化
   storage.addChangeListener((changes, areaName) => {
     if (areaName === 'sync') {
+      // 统计字段变更不需要重载配置
+      const statsKeys = ['totalWords', 'todayWords', 'lastResetDate', 'cacheHits', 'cacheMisses'];
+      const changedKeys = Object.keys(changes);
+      const isOnlyStatsChange = changedKeys.every(key => statsKeys.includes(key));
+
+      if (isOnlyStatsChange) {
+        return; // 跳过配置重载
+      }
+
       loadConfig().then(async () => {
         // 检查是否在黑名单中（动态变更）
         const hostname = window.location.hostname;
@@ -1322,7 +1330,6 @@ async function init() {
   await loadConfig();
 
   const hostname = window.location.hostname;
-  console.log('[Sapling] Checking blacklist for:', hostname, 'Blacklist:', config.blacklist);
   if (isHostnameBlacklisted(hostname, config.blacklistNormalized || config.blacklist)) {
     // 如果之前已经被替换过，确保还原
     restoreAll();
@@ -1346,18 +1353,14 @@ async function init() {
     const viewportOnly = !config.processFullPage;
     setTimeout(() => processPage(viewportOnly), 1000);
   }
-
-  console.log('[Sapling] 初始化完成 (模块化重构版)');
 }
 
 // 启动
-console.log('[Sapling] Content script loaded, readyState:', document.readyState);
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     console.log('[Sapling] DOMContentLoaded fired, calling init()');
     init();
   });
 } else {
-  console.log('[Sapling] Document ready, calling init() directly');
   init();
 }

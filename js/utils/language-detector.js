@@ -16,7 +16,6 @@ export async function initLanguageDetector() {
       languageDetector = await LanguageDetector.create({
         expectedInputLanguages: ['en', 'zh', 'ja', 'ko', 'fr', 'de', 'es']
       });
-      console.log('[Sapling] Native LanguageDetector initialized successfully');
     } else {
       console.debug('[Sapling] Native LanguageDetector API not available, using regex-based fallback');
     }
