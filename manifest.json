@@ -24,9 +24,7 @@
     "storage",
     "activeTab",
     "scripting",
-    "contextMenus",
-    "tts",
-    "offscreen"
+    "contextMenus"
   ],
   "host_permissions": [
     "<all_urls>"

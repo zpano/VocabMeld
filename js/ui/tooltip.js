@@ -407,16 +407,15 @@ export class TooltipManager {
         await playDictionaryAudio(word, lang);
         return;
       } catch (e) {
-        // 降级到 TTS
+        // Wiktionary 失败，降级到 Google Translate TTS
       }
     }
 
-    // 使用 Chrome TTS
-    const ttsLang = lang === 'en' ? 'en-US' :
-                    lang === 'zh-CN' ? 'zh-CN' :
-                    lang === 'ja' ? 'ja-JP' :
-                    lang === 'ko' ? 'ko-KR' : 'en-US';
-
-    chrome.runtime.sendMessage({ action: 'speak', text: word, lang: ttsLang }).catch(() => {});
+    // 非英语或上述方案都失败，尝试 Google Translate TTS
+    try {
+      await playGoogleTranslateTts(word, lang);
+    } catch (e) {
+      // 所有方案都失败，静默忽略
+    }
   }
 }

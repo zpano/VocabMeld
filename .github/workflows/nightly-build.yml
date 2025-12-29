@@ -77,21 +77,8 @@ jobs:
       - name: Create release package
         if: steps.check.outputs.should_build == 'true'
         run: |
-          mkdir -p release
-          zip -r release/Sapling-nightly-${{ steps.info.outputs.date_compact }}${{ steps.info.outputs.tag_suffix }}.zip \
-            manifest.json \
-            *.html \
-            icons/ \
-            css/ \
-            js/ \
-            dist/ \
-            vendor/ \
-            _locales/ \
-            -x "*.map" \
-            -x "node_modules/*" \
-            -x ".git/*" \
-            -x ".github/*" \
-            -x "scripts/*"
+          chmod +x scripts/package.sh
+          ./scripts/package.sh "Sapling-nightly-${{ steps.info.outputs.date_compact }}${{ steps.info.outputs.tag_suffix }}.zip"
 
       - name: Create Nightly Release
         if: steps.check.outputs.should_build == 'true'

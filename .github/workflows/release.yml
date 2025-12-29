@@ -37,23 +37,8 @@ jobs:
 
       - name: Create release package
         run: |
-          mkdir -p release
-          zip -r release/Sapling-${{ steps.version.outputs.version }}.zip \
-            manifest.json \
-            icons/ \
-            css/ \
-            js/ \
-            dist/ \
-            vendor/ \
-            _locales/ \
-            popup.html \
-            options.html \
-            offscreen.html \
-            -x "*.map" \
-            -x "node_modules/*" \
-            -x ".git/*" \
-            -x ".github/*" \
-            -x "scripts/*"
+          chmod +x scripts/package.sh
+          ./scripts/package.sh "Sapling-${{ steps.version.outputs.version }}.zip"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
