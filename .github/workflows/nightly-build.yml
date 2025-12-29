@@ -86,6 +86,7 @@ jobs:
             js/ \
             dist/ \
             vendor/ \
+            wordlist/ \
             _locales/ \
             -x "*.map" \
             -x "node_modules/*" \

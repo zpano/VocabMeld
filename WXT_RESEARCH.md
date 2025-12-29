@@ -60,18 +60,17 @@ export default defineContentScript({
 | `chrome.commands` | ✅ | ✅ | 完全兼容 |
 | `chrome.action` | ✅ | ✅ | 完全兼容 |
 | `chrome.scripting` | ✅ | ✅ | 完全兼容 |
-| **`chrome.offscreen`** | ✅ | ❌ | **Firefox 不支持** |
-| **`chrome.tts`** | ✅ | ❌ | **Firefox 不支持** |
+| ~~`chrome.offscreen`~~ | - | - | **已移除**，改用 iframe 方案 |
+| ~~`chrome.tts`~~ | - | - | **已移除**，改用 Google Translate TTS |
 
 ### 2.2 关键代码位置
 
 | 文件 | Chrome API | 行数 |
 |------|------------|------|
-| `js/background.js` | `chrome.offscreen` | 10-27 |
-| `js/background.js` | `chrome.tts` | 260-265 |
-| `js/background.js` | `chrome.contextMenus` | 123-176 |
-| `js/background.js` | `chrome.commands` | 208-214 |
-| `js/content.js` | `chrome.runtime.onMessage` | 1246 |
+| `js/background.js` | `chrome.contextMenus` | 120-167 |
+| `js/background.js` | `chrome.commands` | 174-180 |
+| `js/services/audio-iframe-player.js` | iframe 音频播放 | 全文件 |
+| `js/content.js` | `chrome.runtime.onMessage` | 多处 |
 | `js/popup.js` | `chrome.tabs`, `chrome.runtime` | 多处 |
 | `js/core/storage/` | `chrome.storage` | 多处 |
 
@@ -140,123 +139,34 @@ export default defineContentScript({
 4. **类型定义添加**
    - 当前项目为纯 JavaScript，迁移时可选择添加 TypeScript 类型
 
-### 3.4 高难度任务 (约 30% 工作量) ⚠️
+### 3.4 高难度任务 (约 30% 工作量) ✅ 已解决
 
-#### 3.4.1 Offscreen Document 替代方案 (最大障碍)
+#### 3.4.1 Offscreen Document 替代方案 ✅ 已完成
 
-**问题**：Firefox 不支持 `chrome.offscreen` API
+**原问题**：Firefox 不支持 `chrome.offscreen` API
 
-**当前用途**：绕过页面 CSP 播放外部音频（Wiktionary、有道、Google TTS）
+**解决方案**：已采用 **隐藏 iframe 方案**（见第十节），统一 Chrome 和 Firefox 代码路径。
 
-**替代方案**：
+相关文件：
+- `audio-player.html` — iframe 音频播放页面
+- `audio-player.js` — iframe 内音频播放逻辑
+- `js/services/audio-iframe-player.js` — iframe 播放器服务类
 
-| 方案 | 可行性 | 复杂度 | 说明 |
-|------|--------|--------|------|
-| **A. 浏览器判断** | ✅ 高 | 中 | Chrome 用 offscreen，Firefox 用 background page |
-| **B. Web Audio API** | ⚠️ 中 | 高 | 直接在 content script 使用，但受 CSP 限制 |
-| **C. 代理服务器** | ⚠️ 低 | 高 | 通过自建服务器转发音频，增加部署成本 |
+#### 3.4.2 TTS API 替代方案 ✅ 已完成
 
-**推荐方案 A 实现**：
+**原问题**：Firefox 不支持 `chrome.tts` API
 
-```typescript
-// entrypoints/background.ts
-import { isFirefox } from '#imports';
+**解决方案**：已移除 Chrome TTS，改用 **Google Translate TTS** 作为最终后备方案。
 
-async function playAudio(urls: string[]) {
-  if (isFirefox) {
-    // Firefox: Background page 有 DOM 访问权限（MV2）
-    // 或使用 Event Page 的 Audio API
-    const audio = new Audio();
-    for (const url of urls) {
-      try {
-        audio.src = url;
-        await audio.play();
-        return;
-      } catch (e) {
-        continue;
-      }
-    }
-  } else {
-    // Chrome: 使用 Offscreen Document
-    await ensureOffscreenDocument();
-    await sendToOffscreen({ action: 'playAudioUrls', urls });
-  }
-}
-```
-
-**Firefox 特殊配置**：
-
-```typescript
-// wxt.config.ts
-export default defineConfig({
-  manifest: {
-    // Firefox 使用 MV2 时 background 有 DOM 访问
-    // WXT 默认 Firefox 用 MV2
-  }
-});
-
-// entrypoints/background.ts
-export default defineBackground({
-  type: 'module',
-  persistent: false, // Event Page (Firefox MV2)
-  main() {
-    // Firefox 下可直接使用 Audio API
-  }
-});
-```
-
-#### 3.4.2 TTS API 替代方案
-
-**问题**：Firefox 不支持 `chrome.tts` API
-
-**当前用途**：使用浏览器内置语音合成朗读单词
-
-**替代方案**：
-
-```typescript
-// js/utils/tts-service.ts
-export async function speak(text: string, lang: string) {
-  if (import.meta.env.FIREFOX) {
-    // 使用 Web Speech API
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang;
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    speechSynthesis.speak(utterance);
-  } else {
-    // Chrome: 使用 chrome.tts
-    browser.tts.speak(text, {
-      lang,
-      rate: 0.9,
-      pitch: 1.0
-    });
-  }
-}
-```
-
-**注意**：Web Speech API 在 content script 中可用，但在 service worker 中不可用。需要调整架构：
-
-```typescript
-// 方案 1: 在 content script 中处理 TTS
-// content.ts → 直接调用 speechSynthesis
-
-// 方案 2: 通过消息传递
-// background.ts → 发消息到 content.ts → content.ts 调用 speechSynthesis
-```
+发音降级策略：
+1. Google TTS（如 provider=google）
+2. Youdao（仅英语，如 provider=youdao）
+3. Wiktionary（仅英语）
+4. Google Translate TTS（所有语言，最终后备）
 
 #### 3.4.3 入口点过滤
 
-对于 Firefox 不支持的功能，使用 `include`/`exclude` 过滤：
-
-```typescript
-// entrypoints/offscreen/index.ts
-export default defineUnlistedScript({
-  include: ['chrome'], // 仅 Chrome 构建包含
-  main() {
-    // Offscreen document 逻辑
-  }
-});
-```
+~~对于 Firefox 不支持的功能，使用 `include`/`exclude` 过滤~~ — **已不需要**，所有功能现在都跨浏览器兼容。
 
 ---
 
@@ -274,8 +184,8 @@ export default defineUnlistedScript({
 
 | 问题 | 原因 | 解决方案 |
 |------|------|----------|
-| Firefox 音频播放失败 | CSP 限制 | 使用 background page + Web Audio |
-| Firefox TTS 无声音 | API 不存在 | 使用 Web Speech API |
+| ~~Firefox 音频播放失败~~ | ~~CSP 限制~~ | ✅ 已通过 iframe 方案解决 |
+| ~~Firefox TTS 无声音~~ | ~~API 不存在~~ | ✅ 已改用 Google Translate TTS |
 | 存储配额差异 | Firefox sync 配额更小 | 保持使用 local 存储大数据 |
 
 ### 4.3 发布相关
@@ -323,10 +233,10 @@ export default defineUnlistedScript({
 5. 迁移 `js/config/`
 6. 迁移 `js/prompts/`
 
-### 阶段 4: 跨浏览器适配 (2-3 天)
+### 阶段 4: 跨浏览器适配 (1-2 天) ✅ 大幅简化
 
-1. 实现 Offscreen Document 替代方案
-2. 实现 TTS API 替代方案
+1. ~~实现 Offscreen Document 替代方案~~ ✅ 已完成（iframe 方案）
+2. ~~实现 TTS API 替代方案~~ ✅ 已完成（Google Translate TTS）
 3. 测试 Firefox 兼容性
 4. 修复浏览器特定 bug
 
@@ -350,11 +260,11 @@ export default defineUnlistedScript({
 | Content script | 8h | P0 |
 | Popup/Options | 4h | P0 |
 | 服务层迁移 | 8h | P1 |
-| Offscreen 替代方案 | 8h | P1 |
-| TTS 替代方案 | 4h | P1 |
-| Firefox 测试调试 | 8h | P1 |
+| ~~Offscreen 替代方案~~ | ~~8h~~ | ✅ 已完成 |
+| ~~TTS 替代方案~~ | ~~4h~~ | ✅ 已完成 |
+| Firefox 测试调试 | 4h | P1 |
 | 文档更新 | 2h | P2 |
-| **总计** | **~54h (7-8 工作日)** | |
+| **总计** | **~38h (5 工作日)** | |
 
 ---
 
@@ -362,17 +272,17 @@ export default defineUnlistedScript({
 
 ### 7.1 主要风险
 
-1. **Offscreen Document 替代方案复杂度高**
-   - 风险：Firefox 下音频播放可能无法完美复现 Chrome 行为
-   - 缓解：提前测试各种音频源在 Firefox background page 中的播放情况
+1. ~~**Offscreen Document 替代方案复杂度高**~~ ✅ 已解决
+   - ~~风险：Firefox 下音频播放可能无法完美复现 Chrome 行为~~
+   - 解决：已采用 iframe 方案，统一 Chrome/Firefox 代码
 
 2. **segmentit 库兼容性**
    - 风险：该库可能有浏览器特定代码
    - 缓解：预先测试库在 Firefox 中的表现
 
-3. **用户体验差异**
-   - 风险：Firefox 用户可能体验到功能缺失（如 TTS 音色不同）
-   - 缓解：在 UI 中说明浏览器差异
+3. ~~**用户体验差异**~~ ✅ 已解决
+   - ~~风险：Firefox 用户可能体验到功能缺失（如 TTS 音色不同）~~
+   - 解决：已统一使用 Google Translate TTS，体验一致
 
 ### 7.2 建议
 
@@ -400,18 +310,18 @@ export default defineUnlistedScript({
 
 ## 九、结论
 
-使用 WXT 重构 Sapling 扩展是**可行的**，但需要注意以下关键点：
+使用 WXT 重构 Sapling 扩展是**可行的**，且难度已大幅降低：
 
-1. **最大挑战**：`chrome.offscreen` API 的 Firefox 替代方案
-2. **次要挑战**：`chrome.tts` API 的跨浏览器兼容
-3. **工作量**：预计 7-8 个工作日完成完整迁移
+1. ~~**最大挑战**：`chrome.offscreen` API 的 Firefox 替代方案~~ ✅ 已解决（iframe 方案）
+2. ~~**次要挑战**：`chrome.tts` API 的跨浏览器兼容~~ ✅ 已解决（Google Translate TTS）
+3. **工作量**：预计 **5 个工作日**完成完整迁移（原估算 7-8 天）
 4. **收益**：
    - 支持 Firefox 用户群
    - 更好的开发体验（HMR）
    - 更现代的构建工具链
    - 更易维护的代码结构
 
-**建议**：如果 Firefox 支持是刚需，则值得投入重构；如果仅是锦上添花，可暂缓。
+**建议**：由于跨浏览器兼容性障碍已清除，现在是进行 WXT 迁移的好时机。
 
 ---
 
@@ -657,14 +567,15 @@ export const audioIframePlayer = new AudioIframePlayer();
 }
 ```
 
-### 10.5 迁移优势
+### 10.5 迁移优势 ✅ 已实施
 
 采用此方案后：
 
-1. **删除 offscreen.html 和 offscreen-audio.js** — 不再需要
-2. **删除 background.js 中的音频处理逻辑** — 移到 content script
-3. **统一 Chrome/Firefox 代码路径** — 一套代码搞定
-4. **减少 background ↔ content 消息传递** — 性能更好
+1. ✅ **已删除 offscreen.html 和 js/offscreen-audio.js**
+2. ✅ **已删除 background.js 中的音频处理和 TTS 逻辑**
+3. ✅ **已移除 `tts` 和 `offscreen` 权限**
+4. **统一 Chrome/Firefox 代码路径** — 一套代码搞定
+5. **减少 background ↔ content 消息传递** — 性能更好
 
 ### 10.6 参考资源
 

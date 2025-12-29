@@ -6,39 +6,6 @@
 import { CACHE_CONFIG, DEFAULT_THEME, normalizeCacheMaxSize } from './core/config.js';
 import { storage } from './core/storage/StorageService.js';
 
-async function ensureOffscreenDocument() {
-  if (!chrome.offscreen?.createDocument) return false;
-
-  try {
-    const hasDocument = await chrome.offscreen.hasDocument();
-    if (hasDocument) return true;
-
-    const reason = chrome.offscreen?.Reason?.AUDIO_PLAYBACK || 'AUDIO_PLAYBACK';
-    await chrome.offscreen.createDocument({
-      url: 'offscreen.html',
-      reasons: [reason],
-      justification: 'Play pronunciation audio without being blocked by the page CSP.'
-    });
-    return true;
-  } catch (error) {
-    console.warn('[Sapling] Failed to ensure offscreen document:', error);
-    return false;
-  }
-}
-
-async function sendToOffscreen(message) {
-  let lastError = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      return await chrome.runtime.sendMessage(message);
-    } catch (error) {
-      lastError = error;
-      await new Promise(resolve => setTimeout(resolve, 60));
-    }
-  }
-  throw lastError || new Error('Failed to send message to offscreen document');
-}
-
 const MENU_ID_ADD_MEMORIZE = 'Sapling-add-memorize';
 const MENU_ID_TOGGLE_PAGE = 'Sapling-process-page';
 
@@ -235,37 +202,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // offscreen 消息不在这里处理（避免自发自收导致循环）
-  if (message?.action?.startsWith?.('offscreen')) return;
-
-  // 播放外部音频（绕过网页 CSP）
-  if (message.action === 'playAudioUrls') {
-    (async () => {
-      try {
-        const ok = await ensureOffscreenDocument();
-        if (!ok) throw new Error('Offscreen document not available');
-
-        const urls = Array.isArray(message.urls) ? message.urls : [];
-        const result = await sendToOffscreen({ action: 'offscreenPlayAudioUrls', urls });
-        sendResponse(result || { success: true });
-      } catch (error) {
-        sendResponse({ success: false, message: error?.message || String(error) });
-      }
-    })();
-    return true;
-  }
-
-  // 语音合成
-  if (message.action === 'speak') {
-    chrome.tts.speak(message.text, {
-      lang: message.lang || 'en-US',
-      rate: 0.9,
-      pitch: 1.0
-    });
-    sendResponse({ success: true });
-    return true;
-  }
-  
   // 测试 API 连接
   if (message.action === 'testApi') {
     testApiConnection(message.endpoint, message.apiKey, message.model)

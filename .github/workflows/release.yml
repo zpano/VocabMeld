@@ -45,10 +45,9 @@ jobs:
             js/ \
             dist/ \
             vendor/ \
+            wordlist/ \
             _locales/ \
-            popup.html \
-            options.html \
-            offscreen.html \
+            *.html \
             -x "*.map" \
             -x "node_modules/*" \
             -x ".git/*" \

@@ -46,7 +46,7 @@ class AudioIframePlayer {
 
     // 创建隐藏 iframe
     this.iframe = document.createElement('iframe');
-    this.iframe.src = chrome.runtime.getURL('audio-player.html');
+    this.iframe.src = chrome.runtime.getURL('js/services/audio-player.html');
     this.iframe.style.cssText = 'display:none;width:0;height:0;border:none;position:fixed;top:-9999px;left:-9999px;pointer-events:none;';
     this.iframe.setAttribute('aria-hidden', 'true');
     this.iframe.setAttribute('tabindex', '-1');
